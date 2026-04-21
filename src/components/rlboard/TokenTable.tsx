@@ -176,6 +176,7 @@ export function TokenTable({
             );
           })}
         </div>
+        </div>
       </div>
     </div>
   );
