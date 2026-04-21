@@ -7,6 +7,8 @@ import {
   tokenCount,
 } from "@/lib/rlboard/schema";
 import { heatColor, robustExtent } from "@/lib/rlboard/colors";
+import { isSpecialToken } from "@/lib/rlboard/tokens";
+import { useRLBoard } from "@/lib/rlboard/context";
 import { TokenHeatmap } from "./TokenHeatmap";
 import { TokenCurves } from "./TokenCurves";
 
@@ -47,12 +49,28 @@ export function TokenPager({
   const end = Math.min(total, start + pageSize);
   const range: [number, number] = [start, end];
 
+  const { hideSpecialTokens } = useRLBoard();
   const fullValues = useMemo(
     () => getTokenMetric(record, metric) ?? [],
     [record, metric],
   );
-  const pageValues = useMemo(() => fullValues.slice(start, end), [fullValues, start, end]);
-  const tokens = record.response_tokens?.slice(start, end);
+  const pageValuesRaw = useMemo(() => fullValues.slice(start, end), [fullValues, start, end]);
+  const tokensRaw = record.response_tokens?.slice(start, end);
+  // Apply pad/special-token filter at render time
+  const { pageValues, tokens, hiddenCount } = useMemo(() => {
+    if (!hideSpecialTokens || !tokensRaw) {
+      return { pageValues: pageValuesRaw, tokens: tokensRaw, hiddenCount: 0 };
+    }
+    const v: number[] = [];
+    const t: string[] = [];
+    let hidden = 0;
+    for (let i = 0; i < tokensRaw.length; i++) {
+      if (isSpecialToken(tokensRaw[i])) { hidden++; continue; }
+      v.push(pageValuesRaw[i]);
+      t.push(tokensRaw[i]);
+    }
+    return { pageValues: v, tokens: t, hiddenCount: hidden };
+  }, [pageValuesRaw, tokensRaw, hideSpecialTokens]);
   const extent = useMemo(() => robustExtent(pageValues), [pageValues]);
 
   const goto = (p: number) => setRawPage(Math.max(0, Math.min(pageCount - 1, p)));
@@ -173,6 +191,7 @@ export function TokenPager({
         <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
           <span className="font-mono uppercase tracking-widest">tokens · {TOKEN_METRIC_LABELS[metric]}</span>
           <span className="font-mono">
+            {hiddenCount > 0 ? <span className="mr-2 text-warning">filtered {hiddenCount} special</span> : null}
             range [{extent[0].toFixed(3)}, {extent[1].toFixed(3)}]
           </span>
         </div>

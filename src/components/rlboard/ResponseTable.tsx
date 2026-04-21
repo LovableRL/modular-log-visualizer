@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import type { RLBoardRecord } from "@/lib/rlboard/schema";
 import { tokenCount } from "@/lib/rlboard/schema";
+import { recordRun } from "@/lib/rlboard/parse";
 import { cn } from "@/lib/utils";
 
-type SortKey = "step" | "reward" | "ref_reward" | "kl" | "length" | "advMean";
+type SortKey = "step" | "reward" | "ref_reward" | "delta" | "kl" | "length" | "advMean";
 
 export function ResponseTable({
   records,
@@ -27,8 +28,10 @@ export function ResponseTable({
         idx: i,
         step: r.step,
         rid: r.rollout_id ?? `#${i}`,
+        run: recordRun(r),
         reward: r.reward,
         ref_reward: r.ref_reward ?? null,
+        delta: typeof r.ref_reward === "number" ? r.reward - r.ref_reward : null,
         kl: r.kl ?? null,
         length: tokenCount(r),
         advMean: adv && adv.length ? adv.reduce((a, b) => a + b, 0) / adv.length : null,
@@ -54,10 +57,13 @@ export function ResponseTable({
     { key: "step", label: "Step" },
     { key: "reward", label: "Reward" },
     { key: "ref_reward", label: "Ref" },
+    { key: "delta", label: "Δ" },
     { key: "kl", label: "KL" },
     { key: "advMean", label: "Adv̄" },
     { key: "length", label: "Len" },
   ];
+
+  const multiRun = useMemo(() => new Set(rows.map((r) => r.run)).size > 1, [rows]);
 
   return (
     <div className="space-y-2">
@@ -72,6 +78,7 @@ export function ResponseTable({
           <thead className="sticky top-0 bg-secondary text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-2 py-2 text-left">id</th>
+              {multiRun && <th className="px-2 py-2 text-left">run</th>}
               {headers.map((h) => (
                 <th
                   key={h.key}
@@ -98,10 +105,19 @@ export function ResponseTable({
                 )}
               >
                 <td className="px-2 py-1.5 font-mono text-xs">{r.rid}</td>
+                {multiRun && (
+                  <td className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground">{r.run}</td>
+                )}
                 <td className="px-2 py-1.5 text-right font-mono">{r.step}</td>
                 <td className="px-2 py-1.5 text-right font-mono">{r.reward.toFixed(3)}</td>
                 <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
                   {r.ref_reward != null ? r.ref_reward.toFixed(3) : "—"}
+                </td>
+                <td
+                  className="px-2 py-1.5 text-right font-mono"
+                  style={{ color: r.delta == null ? undefined : r.delta >= 0 ? "var(--success)" : "var(--destructive)" }}
+                >
+                  {r.delta != null ? (r.delta >= 0 ? "+" : "") + r.delta.toFixed(3) : "—"}
                 </td>
                 <td className="px-2 py-1.5 text-right font-mono text-muted-foreground">
                   {r.kl != null ? r.kl.toFixed(3) : "—"}

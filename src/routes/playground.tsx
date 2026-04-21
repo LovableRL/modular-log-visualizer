@@ -4,12 +4,15 @@ import { useRLBoard } from "@/lib/rlboard/context";
 import {
   RewardCurve,
   RewardDistribution,
+  RewardDeltaDistribution,
   ResponseTable,
   TokenPager,
   ModuleCard,
   PerfPanel,
+  CriticDiagnostic,
+  ResponseDiff,
 } from "@/components/rlboard";
-import { parseJsonl } from "@/lib/rlboard/parse";
+import { parseFiles } from "@/lib/rlboard/parse";
 import { makeSampleRecords, makeLongContextRecord } from "@/lib/rlboard/sample";
 import { tokenCount } from "@/lib/rlboard/schema";
 
@@ -20,7 +23,7 @@ export const Route = createFileRoute("/playground")({
       {
         name: "description",
         content:
-          "Inspect RL training rollouts: reward curves, response table, and a paged token explorer that scales to 256k tokens.",
+          "Inspect RL training rollouts: reward curves, response table, critic diagnostic and token explorer scaling to 256k tokens.",
       },
     ],
   }),
@@ -28,25 +31,41 @@ export const Route = createFileRoute("/playground")({
 });
 
 function PlaygroundPage() {
-  const { records, setRecords, selectedIndex, setSelectedIndex, source, setSource } = useRLBoard();
+  const {
+    records,
+    setRecords,
+    selectedIndex,
+    setSelectedIndex,
+    source,
+    setSource,
+    runs,
+    activeRuns,
+    toggleRun,
+    setActiveRuns,
+    filteredRecords,
+    hideSpecialTokens,
+    setHideSpecialTokens,
+  } = useRLBoard();
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPerf, setShowPerf] = useState(false);
 
-  const onFile = async (f: File) => {
+  const onFiles = async (files: File[]) => {
     setError(null);
-    const text = await f.text();
-    const { records: recs, errors } = parseJsonl(text);
+    const { records: recs, perFile } = await parseFiles(files);
     if (recs.length === 0) {
-      setError(`No valid records found. ${errors[0]?.message ?? ""}`);
+      setError(`No valid records found in ${files.length} file(s).`);
       return;
     }
     setRecords(recs);
-    setSource(`${f.name} (${recs.length} records${errors.length ? `, ${errors.length} skipped` : ""})`);
+    const summary = perFile
+      .map((f) => `${f.name} (${f.count}${f.errors ? `, ${f.errors} skipped` : ""})`)
+      .join(" · ");
+    setSource(`${perFile.length} file${perFile.length > 1 ? "s" : ""}: ${summary}`);
     setSelectedIndex(0);
   };
 
-  const selected = records[selectedIndex] ?? records[0];
+  const selected = filteredRecords[selectedIndex] ?? filteredRecords[0];
 
   return (
     <main className="mx-auto w-full max-w-[1400px] space-y-6 px-4 py-6">
@@ -58,6 +77,9 @@ function PlaygroundPage() {
             <p className="truncate text-xs text-muted-foreground">
               source: <span className="font-mono text-foreground">{source}</span> ·{" "}
               <span className="font-mono">{records.length}</span> records
+              {filteredRecords.length !== records.length && (
+                <> · <span className="font-mono">{filteredRecords.length}</span> after filter</>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -65,17 +87,18 @@ function PlaygroundPage() {
               ref={fileRef}
               type="file"
               accept=".jsonl,.txt,application/json"
+              multiple
               hidden
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void onFile(f);
+                const fs = Array.from(e.target.files ?? []);
+                if (fs.length) void onFiles(fs);
               }}
             />
             <button
               onClick={() => fileRef.current?.click()}
               className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
-              Upload .jsonl
+              Upload .jsonl (multi)
             </button>
             <button
               onClick={() => {
@@ -98,6 +121,15 @@ function PlaygroundPage() {
             >
               256k stress-test
             </button>
+            <label className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={hideSpecialTokens}
+                onChange={(e) => setHideSpecialTokens(e.target.checked)}
+                className="h-3 w-3 accent-primary"
+              />
+              hide &lt;pad&gt; / specials
+            </label>
             <button
               onClick={() => setShowPerf((s) => !s)}
               className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
@@ -106,6 +138,41 @@ function PlaygroundPage() {
             </button>
           </div>
         </div>
+
+        {/* Run chips — only when more than one run is loaded */}
+        {runs.length > 1 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+              runs
+            </span>
+            {runs.map((run) => {
+              const active = activeRuns.size === 0 || activeRuns.has(run);
+              return (
+                <button
+                  key={run}
+                  onClick={() => toggleRun(run)}
+                  className="rounded-full border px-3 py-0.5 font-mono text-[11px] transition-colors"
+                  style={{
+                    borderColor: active ? "var(--primary)" : "var(--border)",
+                    background: active ? "color-mix(in oklab, var(--primary) 18%, transparent)" : "transparent",
+                    color: active ? "var(--foreground)" : "var(--muted-foreground)",
+                  }}
+                >
+                  {run}
+                </button>
+              );
+            })}
+            {activeRuns.size > 0 && (
+              <button
+                onClick={() => setActiveRuns(new Set())}
+                className="ml-2 text-[11px] text-muted-foreground underline hover:text-foreground"
+              >
+                clear
+              </button>
+            )}
+          </div>
+        )}
+
         {error ? (
           <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
@@ -115,20 +182,26 @@ function PlaygroundPage() {
 
       {showPerf && <PerfPanel />}
 
-      {/* Section 1 — Training metrics, side by side on wide screens */}
+      {/* Section 1 — Training metrics */}
       <section>
         <SectionTitle>1 · Training metrics</SectionTitle>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-3">
           <ModuleCard title="reward-curve" subtitle="Mean reward per step (vs reference)">
-            <RewardCurve records={records} height={260} />
+            <RewardCurve records={filteredRecords} height={240} />
           </ModuleCard>
           <ModuleCard title="reward-distribution" subtitle="Per-step reward histogram">
-            <RewardDistribution records={records} height={260} />
+            <RewardDistribution records={filteredRecords} height={240} />
+          </ModuleCard>
+          <ModuleCard
+            title="reward − ref_reward"
+            subtitle="How much the policy beats the reference"
+          >
+            <RewardDeltaDistribution records={filteredRecords} height={240} />
           </ModuleCard>
         </div>
       </section>
 
-      {/* Section 2 — Rollout list (full width, original RLLoggingBoard style) */}
+      {/* Section 2 — Rollout list */}
       <section>
         <SectionTitle>2 · Rollouts</SectionTitle>
         <ModuleCard
@@ -141,7 +214,7 @@ function PlaygroundPage() {
           }
         >
           <ResponseTable
-            records={records}
+            records={filteredRecords}
             selectedIndex={selectedIndex}
             onSelect={setSelectedIndex}
             height={360}
@@ -149,13 +222,17 @@ function PlaygroundPage() {
         </ModuleCard>
       </section>
 
-      {/* Section 3 — Selected rollout's token explorer (full width — needs the room) */}
+      {/* Section 3 — Selected rollout's token explorer */}
       <section>
         <SectionTitle>3 · Token explorer</SectionTitle>
         {selected ? (
           <ModuleCard
             title="token-pager"
-            subtitle={`#${selectedIndex} · step ${selected.step} · reward ${selected.reward.toFixed(3)}`}
+            subtitle={`#${selectedIndex} · step ${selected.step} · reward ${selected.reward.toFixed(3)}${
+              typeof selected.ref_reward === "number"
+                ? ` · Δ ${(selected.reward - selected.ref_reward).toFixed(3)}`
+                : ""
+            }`}
             actions={
               <span className="font-mono text-[11px] text-muted-foreground">
                 {tokenCount(selected).toLocaleString()} tokens
@@ -195,6 +272,27 @@ function PlaygroundPage() {
           </ModuleCard>
         )}
       </section>
+
+      {/* Section 4 — Critic + diff diagnostics */}
+      {selected && (
+        <section>
+          <SectionTitle>4 · Diagnostics</SectionTitle>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ModuleCard
+              title="critic-diagnostic"
+              subtitle="value vs token_reward (lower MSE = better critic fit)"
+            >
+              <CriticDiagnostic record={selected} height={240} />
+            </ModuleCard>
+            <ModuleCard
+              title="rl-vs-ref-text"
+              subtitle="Word-level diff against ref_response"
+            >
+              <ResponseDiff record={selected} />
+            </ModuleCard>
+          </div>
+        </section>
+      )}
     </main>
   );
 }
