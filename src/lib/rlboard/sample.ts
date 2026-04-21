@@ -348,44 +348,44 @@ export function makeSampleRecords(): RLBoardRecord[] {
  * Per-token metrics are length-aligned with the token stream.
  */
 export function makeLongContextRecord(targetTokens = 262144): RLBoardRecord {
-  // Vocabulary biased toward sub-word pieces, punctuation, and newlines, so
-  // the visualization looks like a real BPE stream.
-  const vocab = [
-    "the", "of", "and", "to", "in", "is", "that", "it", "with", "for", "on",
-    "as", "by", "this", "be", "are", "was", "from", "an", "at", "or", "we",
-    "Ġmodel", "Ġtoken", "Ġreward", "Ġvalue", "Ġpolicy", "Ġstate", "Ġaction",
-    "Ġlogit", "Ġloss", "Ġstep", "Ġbatch", "Ġepoch", "Ġlearning", "Ġrate",
-    "##ing", "##ed", "##er", "##ion", "##ly", "##ness", "##ity", "##s",
-    "Ġ\"", "\":", ",", ".", ";", "(", ")", "{", "}", "[", "]", "→", "·",
-    "0", "1", "2", "3", "0.5", "1e-3", "RL", "PPO", "GRPO", "KL",
+  // A small corpus of coherent sentences about RL — split into BPE-ish pieces
+  // (Ġ = leading space, ## = WordPiece continuation) so the renderer's
+  // BPE decoder produces readable English at scale.
+  const SENTENCES: string[] = [
+    "Policy gradient methods optimize the expected return by following the gradient of the log probability of actions weighted by the advantage.",
+    "In GRPO we drop the value baseline and instead normalize rewards within a group of rollouts sampled from the same prompt.",
+    "The KL term keeps the updated policy close to the reference model so that learned behaviour does not drift away from the supervised checkpoint.",
+    "When the advantage is positive the loss pushes the log probability of the chosen token up, and when it is negative the loss pushes it down.",
+    "Long context training stresses both memory and reward attribution because the credit signal must travel across tens of thousands of tokens.",
+    "Token level entropy is a useful diagnostic, since collapsing entropy often predicts that the policy is about to overfit a single mode.",
+    "The reward model assigns a scalar to the entire response, which we then broadcast or shape into per token rewards before computing advantages.",
+    "A well calibrated critic predicts the expected return from each state, and a low critic loss is a prerequisite for stable PPO updates.",
+    "Reasoning traces inside think blocks tend to have lower log probabilities because the model is exploring rather than committing to an answer.",
+    "Tool calls produce structured outputs whose tokens are largely deterministic, so their entropy collapses to near zero on a well trained policy.",
   ];
 
-  const tokens: string[] = [];
-
-  // Header — system + user
-  const header = (b: RolloutBuilder) => {
-    block(b, "system", () =>
-      pushText(b, "You are a careful research assistant. Think step by step before answering."),
-    );
-    block(b, "user", () =>
-      pushText(
-        b,
-        "Write a long, detailed analysis of policy gradient methods for very long contexts.",
-      ),
-    );
+  // Tokenize a sentence into BPE-ish pieces. First word in a sentence has no
+  // leading space; every following word gets a Ġ prefix; ~25% of long words
+  // are split into a head + ##tail to mimic WordPiece continuation.
+  const pieceify = (sentence: string, seed: () => number): string[] => {
+    const words = sentence.split(/\s+/);
+    const out: string[] = [];
+    for (let wi = 0; wi < words.length; wi++) {
+      const word = words[wi];
+      const prefix = wi === 0 ? "" : "Ġ";
+      const trailing = word.match(/[.,;:!?]+$/)?.[0] ?? "";
+      const core = trailing ? word.slice(0, -trailing.length) : word;
+      if (core.length >= 6 && seed() < 0.25) {
+        const split = 2 + Math.floor(seed() * (core.length - 3));
+        out.push(prefix + core.slice(0, split));
+        out.push("##" + core.slice(split));
+      } else if (core.length > 0) {
+        out.push(prefix + core);
+      }
+      if (trailing) out.push(trailing);
+    }
+    return out;
   };
-
-  const b: RolloutBuilder = { tokens, hints: [] };
-  header(b);
-
-  // Open assistant turn
-  pushText(b, "<|im_start|>assistant\n");
-
-  // Open think — fill ~30 % of remaining budget
-  const remaining = () => Math.max(0, targetTokens - tokens.length - 32);
-  const thinkBudget = Math.floor(remaining() * 0.3);
-  pushText(b, "<think>\n");
-  const thinkStart = tokens.length;
 
   let s = 0xc0ffee >>> 0;
   const rand = () => {
@@ -393,8 +393,37 @@ export function makeLongContextRecord(targetTokens = 262144): RLBoardRecord {
     return s / 0xffffffff;
   };
 
-  for (let i = 0; i < thinkBudget; i++) {
-    tokens.push(i > 0 && i % 80 === 0 ? "\n" : vocab[Math.floor(rand() * vocab.length)]);
+  const tokens: string[] = [];
+  const b: RolloutBuilder = { tokens, hints: [] };
+
+  // Header — system + user
+  block(b, "system", () =>
+    pushText(b, "You are a careful research assistant. Think step by step before answering."),
+  );
+  block(b, "user", () =>
+    pushText(
+      b,
+      "Write a long, detailed analysis of policy gradient methods for very long contexts.",
+    ),
+  );
+
+  // Open assistant turn
+  pushText(b, "<|im_start|>assistant\n");
+
+  // Open think — fill ~30 % of remaining budget with coherent sentences
+  const remaining = () => Math.max(0, targetTokens - tokens.length - 32);
+  const thinkBudget = Math.floor(remaining() * 0.3);
+  pushText(b, "<think>\n");
+  const thinkStart = tokens.length;
+
+  while (tokens.length - thinkStart < thinkBudget) {
+    const sent = SENTENCES[Math.floor(rand() * SENTENCES.length)];
+    const pieces = pieceify(sent, rand);
+    for (const p of pieces) {
+      if (tokens.length - thinkStart >= thinkBudget) break;
+      tokens.push(p);
+    }
+    if (rand() < 0.2 && tokens.length - thinkStart < thinkBudget) tokens.push("\n");
   }
   const thinkEnd = tokens.length;
   pushText(b, "\n</think>\n");
@@ -402,8 +431,15 @@ export function makeLongContextRecord(targetTokens = 262144): RLBoardRecord {
 
   // Body fills the rest, leaving room for closing markers
   const bodyBudget = Math.max(0, targetTokens - tokens.length - 8);
-  for (let i = 0; i < bodyBudget; i++) {
-    tokens.push(i > 0 && i % 80 === 0 ? "\n" : vocab[Math.floor(rand() * vocab.length)]);
+  const bodyStart = tokens.length;
+  while (tokens.length - bodyStart < bodyBudget) {
+    const sent = SENTENCES[Math.floor(rand() * SENTENCES.length)];
+    const pieces = pieceify(sent, rand);
+    for (const p of pieces) {
+      if (tokens.length - bodyStart >= bodyBudget) break;
+      tokens.push(p);
+    }
+    if (rand() < 0.15 && tokens.length - bodyStart < bodyBudget) tokens.push("\n");
   }
 
   pushText(b, "<|im_end|>\n");
