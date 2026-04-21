@@ -2,7 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useRLBoard } from "@/lib/rlboard/context";
 import {
-  RewardCurve, RewardDistribution, ResponseTable, TokenExplorer, ModuleCard, PerfPanel,
+  RewardCurve,
+  RewardDistribution,
+  ResponseTable,
+  TokenPager,
+  ModuleCard,
+  PerfPanel,
 } from "@/components/rlboard";
 import { parseJsonl } from "@/lib/rlboard/parse";
 import { makeSampleRecords, makeLongContextRecord } from "@/lib/rlboard/sample";
@@ -15,7 +20,7 @@ export const Route = createFileRoute("/playground")({
       {
         name: "description",
         content:
-          "Upload your jsonl logs or use the built-in sample to explore reward curves, response tables and token-level heatmaps interactively.",
+          "Three-pane workbench: training metrics, rollout list, and a paged token explorer that scales to 256k tokens.",
       },
     ],
   }),
@@ -26,6 +31,7 @@ function PlaygroundPage() {
   const { records, setRecords, selectedIndex, setSelectedIndex, source, setSource } = useRLBoard();
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPerf, setShowPerf] = useState(false);
 
   const onFile = async (f: File) => {
     setError(null);
@@ -42,13 +48,14 @@ function PlaygroundPage() {
   const selected = records[selectedIndex] ?? records[0];
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-4 py-8">
-      <section className="rounded-lg border border-border bg-card p-4">
+    <main className="mx-auto max-w-[1600px] space-y-4 px-4 py-6">
+      {/* Toolbar */}
+      <section className="rounded-lg border border-border bg-card p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold">Playground</h1>
-            <p className="text-sm text-muted-foreground">
-              Source: <span className="font-mono text-foreground">{source}</span> ·{" "}
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold">Playground</h1>
+            <p className="truncate text-xs text-muted-foreground">
+              source: <span className="font-mono text-foreground">{source}</span> ·{" "}
               <span className="font-mono">{records.length}</span> records
             </p>
           </div>
@@ -73,6 +80,7 @@ function PlaygroundPage() {
               onClick={() => {
                 setRecords(makeSampleRecords());
                 setSource("Built-in sample (rhyme task)");
+                setSelectedIndex(0);
               }}
               className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
             >
@@ -81,12 +89,19 @@ function PlaygroundPage() {
             <button
               onClick={() => {
                 setRecords([makeLongContextRecord(262144)]);
-                setSource("Synthetic 256k-token rollout");
+                setSource("Synthetic 256k-token rollout (BPE-style)");
+                setSelectedIndex(0);
               }}
               className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
               title="Generate one synthetic 262 144-token rollout to stress-test long-context views"
             >
               256k stress-test
+            </button>
+            <button
+              onClick={() => setShowPerf((s) => !s)}
+              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
+            >
+              {showPerf ? "Hide" : "Show"} perf
             </button>
           </div>
         </div>
@@ -97,59 +112,76 @@ function PlaygroundPage() {
         ) : null}
       </section>
 
-      <PerfPanel />
+      {showPerf && <PerfPanel />}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ModuleCard title="reward-curve" subtitle="Mean reward per step (with reference)">
-          <RewardCurve records={records} />
-        </ModuleCard>
-        <ModuleCard title="reward-distribution" subtitle="Reward histogram for the chosen step">
-          <RewardDistribution records={records} />
-        </ModuleCard>
-      </div>
+      {/* Three-pane workbench: training | rollouts | explorer */}
+      <div className="grid gap-4 lg:grid-cols-12">
+        {/* LEFT — training metrics */}
+        <div className="space-y-4 lg:col-span-3">
+          <ModuleCard title="reward-curve" subtitle="Mean reward per step">
+            <RewardCurve records={records} height={200} />
+          </ModuleCard>
+          <ModuleCard title="reward-distribution" subtitle="Per-step histogram">
+            <RewardDistribution records={records} height={200} />
+          </ModuleCard>
+        </div>
 
-      <ModuleCard
-        title="response-table"
-        subtitle="Click a row to inspect that rollout below"
-        actions={
-          <span className="font-mono text-xs text-muted-foreground">
-            selected: #{selectedIndex} · {selected ? tokenCount(selected).toLocaleString() : 0} tokens
-          </span>
-        }
-      >
-        <ResponseTable
-          records={records}
-          selectedIndex={selectedIndex}
-          onSelect={setSelectedIndex}
-        />
-      </ModuleCard>
+        {/* MIDDLE — rollout list */}
+        <div className="lg:col-span-4">
+          <ModuleCard
+            title="response-table"
+            subtitle="Click a row to inspect"
+            actions={
+              <span className="font-mono text-[11px] text-muted-foreground">
+                #{selectedIndex} · {selected ? tokenCount(selected).toLocaleString() : 0} tok
+              </span>
+            }
+          >
+            <ResponseTable
+              records={records}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
+              height={620}
+            />
+          </ModuleCard>
+        </div>
 
-      {selected ? (
-        <div className="space-y-4">
-          <ModuleCard title="rollout" subtitle={`#${selectedIndex} — step ${selected.step} · reward ${selected.reward.toFixed(3)}`}>
-            <details className="text-sm">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                Prompt & response text
-              </summary>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <div>
-                  <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">prompt</div>
-                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background/40 p-3 font-mono text-xs">
+        {/* RIGHT — token explorer for the selected rollout */}
+        <div className="lg:col-span-5">
+          {selected ? (
+            <ModuleCard
+              title="token-pager"
+              subtitle={`#${selectedIndex} · step ${selected.step} · reward ${selected.reward.toFixed(3)}`}
+              actions={
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {tokenCount(selected).toLocaleString()} tokens
+                </span>
+              }
+            >
+              <details className="mb-3 text-xs">
+                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                  prompt & response text
+                </summary>
+                <div className="mt-2 grid gap-2 md:grid-cols-2">
+                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background/40 p-2 font-mono text-[11px]">
                     {selected.prompt}
                   </pre>
-                </div>
-                <div>
-                  <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">response</div>
-                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background/40 p-3 font-mono text-xs">
+                  <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background/40 p-2 font-mono text-[11px]">
                     {selected.response}
                   </pre>
                 </div>
-              </div>
-            </details>
-          </ModuleCard>
-          <TokenExplorer record={selected} />
+              </details>
+              <TokenPager record={selected} />
+            </ModuleCard>
+          ) : (
+            <ModuleCard title="token-pager" subtitle="Select a rollout to inspect">
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                No rollout selected.
+              </p>
+            </ModuleCard>
+          )}
         </div>
-      ) : null}
+      </div>
     </main>
   );
 }
