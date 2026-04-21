@@ -8,6 +8,7 @@ export { ResponseTable } from "./ResponseTable";
 export { TokenHeatmap } from "./TokenHeatmap";
 export { TokenInline } from "./TokenInline";
 export { TokenCurves } from "./TokenCurves";
+export { TokenPager } from "./TokenPager";
 export { TokenExplorer } from "./TokenExplorer";
 export { ModuleCard } from "./ModuleCard";
 export { PerfPanel } from "./PerfPanel";
