@@ -67,30 +67,58 @@ export function makeSampleRecords(): RLBoardRecord[] {
   return records;
 }
 
-/** Build a single, very long synthetic record (~256k tokens) to demo long-context. */
+/**
+ * Build a single very long synthetic record (~256k tokens). Uses a small
+ * BPE-style vocabulary so TokenInline / TokenPager have realistic visual
+ * density without bundling a real tokenizer (Qwen3 tokenizer json is ~10MB
+ * and belongs in the Python side; the React side just renders strings).
+ */
 export function makeLongContextRecord(targetTokens = 262144): RLBoardRecord {
   const n = targetTokens;
+  // BPE-flavoured vocabulary: short pieces, sub-word suffixes, punctuation,
+  // newlines — visually mimics what Qwen/Llama tokenizers produce.
+  const vocab = [
+    "the", "of", "and", "to", "in", "is", "that", "it", "with", "for", "on",
+    "as", "by", "this", "be", "are", "was", "from", "an", "at", "or", "we",
+    "Ġmodel", "Ġtoken", "Ġreward", "Ġvalue", "Ġpolicy", "Ġstate", "Ġaction",
+    "Ġlogit", "Ġloss", "Ġstep", "Ġbatch", "Ġepoch", "Ġlearning", "Ġrate",
+    "##ing", "##ed", "##er", "##ion", "##ly", "##ness", "##ity", "##s",
+    "Ġ\"", "\":", ",", ".", ";", "(", ")", "{", "}", "[", "]", "→", "·",
+    "0", "1", "2", "3", "0.5", "1e-3", "RL", "PPO", "GRPO", "KL",
+    "\n",
+  ];
+  const tokens = new Array<string>(n);
   const logp = new Array<number>(n);
   const reflogp = new Array<number>(n);
   const values = new Array<number>(n);
   const tokRew = new Array<number>(n);
   const adv = new Array<number>(n);
   const ent = new Array<number>(n);
+  // deterministic LCG for reproducibility
+  let s = 0xC0FFEE >>> 0;
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0xffffffff;
+  };
   for (let i = 0; i < n; i++) {
     const t = i / n;
     const wave = Math.sin(i / 800) * Math.cos(i / 137);
-    logp[i] = -1.5 + wave * 0.8 - t * 0.5;
+    // bias toward newline every ~80 tokens for paragraph structure
+    const tok = i > 0 && i % 80 === 0 ? "\n" : vocab[Math.floor(rand() * vocab.length)];
+    tokens[i] = tok;
+    logp[i] = -1.5 + wave * 0.8 - t * 0.5 + (rand() - 0.5) * 0.1;
     reflogp[i] = logp[i] - 0.2 - Math.sin(i / 1500) * 0.4;
     values[i] = 0.5 + Math.sin(i / 600) * 0.4;
     tokRew[i] = (i % 4096 === 0 ? 1 : 0) * (0.5 + Math.cos(i / 9000));
-    adv[i] = wave * 0.6 + (Math.random() - 0.5) * 0.05;
-    ent[i] = 0.5 + Math.cos(i / 1100) * 0.3;
+    adv[i] = wave * 0.6 + (rand() - 0.5) * 0.05;
+    ent[i] = 0.5 + Math.cos(i / 1100) * 0.3 + rand() * 0.05;
   }
   return {
     step: 0,
-    rollout_id: "long-context-demo",
-    prompt: "Long context demo (synthetic).",
-    response: "(synthetic — token strings omitted to keep payload small)",
+    rollout_id: "long-context-256k",
+    prompt: "Synthetic 256k-token rollout (BPE-style vocabulary).",
+    response: `(${n.toLocaleString()} tokens — preview omitted; use the pager / heatmap below)`,
+    response_tokens: tokens,
     logprobs: logp,
     ref_logprobs: reflogp,
     values,
@@ -99,6 +127,6 @@ export function makeLongContextRecord(targetTokens = 262144): RLBoardRecord {
     entropy: ent,
     reward: 4.2,
     ref_reward: 2.1,
-    metadata: { task: "long-context-demo", tokens: n },
+    metadata: { task: "long-context-demo", tokens: n, tokenizer: "synthetic-bpe" },
   };
 }

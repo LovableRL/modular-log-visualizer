@@ -2,7 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useRLBoard } from "@/lib/rlboard/context";
 import {
   RewardCurve, RewardDistribution, ResponseTable,
-  TokenHeatmap, TokenInline, TokenCurves, TokenExplorer, ModuleCard,
+  TokenHeatmap, TokenInline, TokenCurves, TokenPager, TokenExplorer, ModuleCard,
 } from "@/components/rlboard";
 import { useState } from "react";
 
@@ -35,6 +35,7 @@ const SNIPPETS: Record<string, string> = {
   "token-heatmap": `import { TokenHeatmap } from "@rlboard/react";\n\n<TokenHeatmap record={record} onRangeSelect={setRange} />`,
   "token-inline": `import { TokenInline } from "@rlboard/react";\n\n<TokenInline record={record} range={range} />`,
   "token-curves": `import { TokenCurves } from "@rlboard/react";\n\n<TokenCurves record={record} range={range} />`,
+  "token-pager": `import { TokenPager } from "@rlboard/react";\n\n<TokenPager record={record} defaultPageSize={2048} />`,
   "token-explorer": `import { TokenExplorer } from "@rlboard/react";\n\n<TokenExplorer record={record} />`,
 };
 
@@ -73,6 +74,7 @@ function ModulePage() {
         )}
         {id === "token-inline" && selected && <TokenInline record={selected} range={range} />}
         {id === "token-curves" && selected && <TokenCurves record={selected} range={range} />}
+        {id === "token-pager" && selected && <TokenPager record={selected} />}
         {id === "token-explorer" && selected && <TokenExplorer record={selected} />}
       </ModuleCard>
 
