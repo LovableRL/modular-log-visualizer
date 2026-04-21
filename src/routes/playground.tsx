@@ -306,3 +306,116 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     </h2>
   );
 }
+
+function SelectedRolloutSection({
+  selected,
+  selectedIndex,
+}: {
+  selected: RLBoardRecord | undefined;
+  selectedIndex: number;
+}) {
+  const segments = useMemo(
+    () => (selected ? deriveSegments(selected) : []),
+    [selected],
+  );
+  const hasTrajectory = segments.length >= 2;
+  const [view, setView] = useState<"flat" | "trajectory">(
+    hasTrajectory ? "trajectory" : "flat",
+  );
+  // re-default when selection changes
+  const lastIdxRef = useRef(selectedIndex);
+  if (lastIdxRef.current !== selectedIndex) {
+    lastIdxRef.current = selectedIndex;
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+  }
+
+  if (!selected) {
+    return (
+      <section>
+        <SectionTitle>3 · Token explorer</SectionTitle>
+        <ModuleCard title="token-pager" subtitle="Select a rollout above">
+          <p className="py-12 text-center text-sm text-muted-foreground">
+            No rollout selected.
+          </p>
+        </ModuleCard>
+      </section>
+    );
+  }
+
+  const subtitle = `#${selectedIndex} · step ${selected.step} · reward ${selected.reward.toFixed(3)}${
+    typeof selected.ref_reward === "number"
+      ? ` · Δ ${(selected.reward - selected.ref_reward).toFixed(3)}`
+      : ""
+  }`;
+
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <SectionTitle>3 · {view === "trajectory" ? "Trajectory" : "Token explorer"}</SectionTitle>
+        <div className="inline-flex overflow-hidden rounded-md border border-border text-[11px] font-mono">
+          <button
+            onClick={() => setView("flat")}
+            className="px-2 py-1 transition-colors"
+            style={{
+              background: view === "flat" ? "var(--secondary)" : "transparent",
+              color: view === "flat" ? "var(--foreground)" : "var(--muted-foreground)",
+            }}
+          >
+            flat tokens
+          </button>
+          <button
+            onClick={() => setView("trajectory")}
+            disabled={!hasTrajectory}
+            className="px-2 py-1 transition-colors disabled:opacity-40"
+            style={{
+              background: view === "trajectory" ? "var(--secondary)" : "transparent",
+              color: view === "trajectory" ? "var(--foreground)" : "var(--muted-foreground)",
+            }}
+            title={hasTrajectory ? "" : "No multi-segment structure detected"}
+          >
+            trajectory ({segments.length})
+          </button>
+        </div>
+      </div>
+
+      <ModuleCard
+        title={view === "trajectory" ? "trajectory-view" : "token-pager"}
+        subtitle={subtitle}
+        actions={
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {tokenCount(selected).toLocaleString()} tokens
+          </span>
+        }
+      >
+        <details className="mb-4 text-sm">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            prompt &amp; response text
+          </summary>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div>
+              <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                prompt
+              </div>
+              <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background/40 p-3 font-mono text-xs">
+                {selected.prompt}
+              </pre>
+            </div>
+            <div>
+              <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                response
+              </div>
+              <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background/40 p-3 font-mono text-xs">
+                {selected.response}
+              </pre>
+            </div>
+          </div>
+        </details>
+        {view === "trajectory" ? (
+          <TrajectoryView record={selected} />
+        ) : (
+          <TokenPager record={selected} />
+        )}
+      </ModuleCard>
+    </section>
+  );
+}
