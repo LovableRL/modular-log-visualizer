@@ -31,7 +31,31 @@ export interface RLBoardRecord {
   ref_reward?: number;
   kl?: number;
 
+  // agentic trajectory segments — optional; auto-derived when missing
+  segments?: TrajectorySegment[];
+
   // freeform
+  metadata?: Record<string, unknown>;
+}
+
+export type SegmentKind =
+  | "system"
+  | "user"
+  | "assistant"
+  | "think"
+  | "tool_call"
+  | "tool_result"
+  | "observation"
+  | "answer";
+
+export interface TrajectorySegment {
+  id: string;
+  kind: SegmentKind;
+  label?: string;
+  start: number; // inclusive token index
+  end: number;   // exclusive token index
+  tool?: string;
+  reward?: number;
   metadata?: Record<string, unknown>;
 }
 
