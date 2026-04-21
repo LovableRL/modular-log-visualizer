@@ -249,7 +249,9 @@ function PlaygroundPage() {
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+type SectionTitleProps = { children: React.ReactNode };
+function SectionTitle(props: SectionTitleProps) {
+  const { children } = props;
   return (
     <h2 className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
       {children}
