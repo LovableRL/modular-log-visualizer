@@ -100,24 +100,27 @@ export function TokenTable({
     );
   };
 
-  // grid template: idx | token | each metric
-  const gridTemplate = `64px minmax(140px,1fr) ${columns.map(() => "minmax(82px, 1fr)").join(" ")}`;
+  // grid template: idx | token | each metric — fixed widths so all columns
+  // stay visible inside a horizontal scroll container.
+  const gridTemplate = `64px 160px ${columns.map(() => "110px").join(" ")}`;
+  const minRowWidth = 64 + 160 + columns.length * 110 + (columns.length + 1) * 8 + 16;
 
   return (
-    <div className="rounded-md border border-border bg-background/40">
-      <div
-        className="grid items-center border-b border-border bg-background/60 px-2 py-1.5"
-        style={{ gridTemplateColumns: gridTemplate, columnGap: 8 }}
-      >
-        {headerCell("#", "idx", "text-right")}
-        {headerCell("token", "idx")}
-        {columns.map((c) => (
-          <div key={c.m} className="text-right">
-            {headerCell(c.label, c.m, "text-right")}
-          </div>
-        ))}
-      </div>
-      <div ref={parentRef} className="overflow-auto" style={{ height }}>
+    <div className="overflow-x-auto rounded-md border border-border bg-background/40">
+      <div style={{ minWidth: minRowWidth }}>
+        <div
+          className="grid items-center border-b border-border bg-background/60 px-2 py-1.5"
+          style={{ gridTemplateColumns: gridTemplate, columnGap: 8 }}
+        >
+          {headerCell("#", "idx", "text-right")}
+          {headerCell("token", "idx")}
+          {columns.map((c) => (
+            <div key={c.m} className="text-right">
+              {headerCell(c.label, c.m, "w-full text-right")}
+            </div>
+          ))}
+        </div>
+        <div ref={parentRef} className="overflow-auto" style={{ height }}>
         <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative", width: "100%" }}>
           {rowVirtualizer.getVirtualItems().map((vr) => {
             const localIdx = order[vr.index];
