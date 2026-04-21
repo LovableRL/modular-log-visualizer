@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useRLBoard } from "@/lib/rlboard/context";
 import {
-  RewardCurve, RewardDistribution, ResponseTable, TokenExplorer, ModuleCard,
+  RewardCurve, RewardDistribution, ResponseTable, TokenExplorer, ModuleCard, PerfPanel,
 } from "@/components/rlboard";
 import { parseJsonl } from "@/lib/rlboard/parse";
 import { makeSampleRecords, makeLongContextRecord } from "@/lib/rlboard/sample";
