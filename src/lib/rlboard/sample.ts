@@ -64,7 +64,115 @@ export function makeSampleRecords(): RLBoardRecord[] {
       });
     }
   }
+  // Append a couple of agentic rollouts so the trajectory view has data by default
+  records.push(makeAgenticRecord(24, "agentic-a", 0.78));
+  records.push(makeAgenticRecord(25, "agentic-b", 0.31));
   return records;
+}
+
+/**
+ * Synthesize an agentic rollout with multi-turn ChatML markup, <think>,
+ * <tool_call> and <tool_response> blocks. The token list is the canonical
+ * source — every per-token metric array stays length-aligned with it so the
+ * rest of the pipeline (deriveSegments, TokenPager, TokenHeatmap) just works.
+ */
+export function makeAgenticRecord(
+  step: number,
+  rolloutId: string,
+  finalReward: number,
+): RLBoardRecord {
+  const tokens: string[] = [];
+  const segHints: { kind: string; from: number; to: number }[] = [];
+
+  const push = (text: string) => {
+    // Coarse per-word tokenization with ChatML markers kept whole.
+    const parts = text.split(/(\s+|<\|im_start\|>|<\|im_end\|>|<\/?think>|<\/?tool_call>|<\/?tool_response>)/);
+    for (const p of parts) if (p) tokens.push(p);
+  };
+
+  const block = (role: "user" | "assistant" | "tool", body: () => void) => {
+    push(`<|im_start|>${role}\n`);
+    body();
+    push(`<|im_end|>\n`);
+  };
+
+  block("user", () => push("What is the capital of France and its population in 2023?"));
+
+  // assistant turn 1: think + tool_call
+  block("assistant", () => {
+    const t0 = tokens.length;
+    push("<think>");
+    push("I need to look up the population of Paris in 2023. Let me call the search tool.");
+    push("</think>");
+    segHints.push({ kind: "think", from: t0, to: tokens.length });
+    push("<tool_call>");
+    push(' {"name": "search", "arguments": {"q": "Paris population 2023"}}');
+    push("</tool_call>");
+  });
+
+  // tool result
+  block("tool", () => {
+    push("<tool_response>");
+    push(' {"results": [{"title": "Paris — 2 102 650 (2023 census)", "url": "https://example.org"}]}');
+    push("</tool_response>");
+  });
+
+  // assistant turn 2: think + answer
+  block("assistant", () => {
+    push("<think>");
+    push("Good. The capital of France is Paris and its 2023 population is about 2.1 million.");
+    push("</think>");
+    push("The capital of France is Paris. Its population in 2023 was approximately 2 102 650 (city proper).");
+  });
+
+  const n = tokens.length;
+  const logp: number[] = [];
+  const reflogp: number[] = [];
+  const values: number[] = [];
+  const tokRew: number[] = [];
+  const adv: number[] = [];
+  const ent: number[] = [];
+
+  let s = (step * 9301 + 49297) >>> 0;
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0xffffffff;
+  };
+
+  for (let i = 0; i < n; i++) {
+    const tok = tokens[i];
+    // Marker tokens are very confident (low |logp|), thinking tokens lower.
+    const isMarker = /^<\|/.test(tok) || /^<\/?(think|tool_call|tool_response)>$/.test(tok);
+    const inThink = segHints.some((h) => h.kind === "think" && i >= h.from && i < h.to);
+    const base = isMarker ? -0.05 : inThink ? -2.2 : -1.1;
+    const lp = base + (rand() - 0.5) * 0.4;
+    const rlp = lp - (inThink ? 0.4 : 0.05) - (rand() - 0.5) * 0.2;
+    logp.push(lp);
+    reflogp.push(rlp);
+    values.push(0.4 + Math.sin(i / 5) * 0.2 + (rand() - 0.5) * 0.1);
+    // give a chunky reward at the answer tail
+    const isTail = i >= n - 12;
+    tokRew.push(isTail ? finalReward / 12 : (rand() - 0.5) * 0.01);
+    adv.push((isTail ? 0.4 : 0) + (rand() - 0.5) * 0.1);
+    ent.push(inThink ? 1.4 + rand() * 0.3 : 0.4 + rand() * 0.2);
+  }
+
+  return {
+    step,
+    rollout_id: rolloutId,
+    prompt: "What is the capital of France and its population in 2023?",
+    response: tokens.join(""),
+    response_tokens: tokens,
+    logprobs: logp,
+    ref_logprobs: reflogp,
+    values,
+    token_rewards: tokRew,
+    advantages: adv,
+    entropy: ent,
+    reward: finalReward,
+    ref_reward: finalReward - 0.25,
+    metadata: { task: "agentic-search", model: "demo-7b" },
+  };
 }
 
 /**

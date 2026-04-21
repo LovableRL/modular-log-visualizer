@@ -15,3 +15,6 @@ export { CriticDiagnostic } from "./CriticDiagnostic";
 export { ResponseDiff } from "./ResponseDiff";
 export { ModuleCard } from "./ModuleCard";
 export { PerfPanel } from "./PerfPanel";
+export { TrajectoryView } from "./TrajectoryView";
+export { TrajectoryTimeline } from "./TrajectoryTimeline";
+export { SegmentDetail } from "./SegmentDetail";
