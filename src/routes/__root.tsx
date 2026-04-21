@@ -1,6 +1,7 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
-
 import appCss from "../styles.css?url";
+import { RLBoardProvider } from "@/lib/rlboard/context";
+import { SiteHeader } from "@/components/SiteHeader";
 
 function NotFoundComponent() {
   return (
@@ -29,21 +30,19 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "rlboard — RL Logging Board v2 (modular RL training visualizer, 256k tokens)" },
+      {
+        name: "description",
+        content:
+          "Modular RL training visualization library: reward curves, token-level heatmaps, response explorer. Supports up to 256k token sequences with minimap + virtualized drill-down.",
+      },
+      { name: "author", content: "rlboard" },
+      { property: "og:title", content: "rlboard — RL Logging Board v2" },
+      { property: "og:description", content: "Modular RL training visualizer with 256k token support." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-    ],
+    links: [{ rel: "stylesheet", href: appCss }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -65,5 +64,12 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-  return <Outlet />;
+  return (
+    <RLBoardProvider>
+      <div className="min-h-screen bg-background text-foreground">
+        <SiteHeader />
+        <Outlet />
+      </div>
+    </RLBoardProvider>
+  );
 }
