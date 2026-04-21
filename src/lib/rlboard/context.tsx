@@ -18,7 +18,11 @@ interface DataCtx {
   setSource: (s: string) => void;
   hideSpecialTokens: boolean;
   setHideSpecialTokens: (v: boolean) => void;
+  tokenViewMode: TokenViewMode;
+  setTokenViewMode: (v: TokenViewMode) => void;
 }
+
+export type TokenViewMode = "compact" | "values" | "table";
 
 const Ctx = createContext<DataCtx | null>(null);
 
@@ -27,6 +31,7 @@ export function RLBoardProvider({ children }: { children: ReactNode }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [source, setSource] = useState("Built-in sample (rhyme task)");
   const [hideSpecialTokens, setHideSpecialTokens] = useState(false);
+  const [tokenViewMode, setTokenViewMode] = useState<TokenViewMode>("compact");
   const [activeRuns, setActiveRuns] = useState<Set<string>>(new Set());
 
   const runs = useMemo(
@@ -70,6 +75,8 @@ export function RLBoardProvider({ children }: { children: ReactNode }) {
     setSource,
     hideSpecialTokens,
     setHideSpecialTokens,
+    tokenViewMode,
+    setTokenViewMode,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
