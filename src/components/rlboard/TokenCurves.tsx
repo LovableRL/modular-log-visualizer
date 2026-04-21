@@ -4,22 +4,25 @@ import {
 } from "recharts";
 import type { RLBoardRecord } from "@/lib/rlboard/schema";
 import { aggregate } from "@/lib/rlboard/colors";
+import { useOptionalPerf } from "@/lib/rlboard/perf";
 
 /**
- * Multi-line per-token curve. For long sequences, downsamples to <=2000 points
+ * Multi-line per-token curve. For long sequences, downsamples to <=maxPoints
  * so the SVG stays responsive. Drives a comparison of logp / value / reward / adv.
  */
 export function TokenCurves({
   record,
   range,
   height = 280,
-  maxPoints = 1500,
+  maxPoints: maxPointsProp,
 }: {
   record: RLBoardRecord;
   range?: [number, number] | null;
   height?: number;
   maxPoints?: number;
 }) {
+  const perf = useOptionalPerf();
+  const maxPoints = maxPointsProp ?? perf?.params.maxCurvePoints ?? 1500;
   const data = useMemo(() => {
     const slice = (arr?: number[]) => {
       if (!arr) return undefined;

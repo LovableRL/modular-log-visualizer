@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { RLBoardRecord, TokenMetricKey } from "@/lib/rlboard/schema";
 import { getTokenMetric, availableMetrics, TOKEN_METRIC_LABELS } from "@/lib/rlboard/schema";
 import { heatColor, robustExtent } from "@/lib/rlboard/colors";
+import { useOptionalPerf } from "@/lib/rlboard/perf";
 
 /**
  * Inline colored token view. Uses tanstack-virtual row virtualization on a
@@ -13,7 +14,7 @@ export function TokenInline({
   metric: metricProp,
   range,
   height = 360,
-  tokensPerRow = 32,
+  tokensPerRow: tokensPerRowProp,
 }: {
   record: RLBoardRecord;
   metric?: TokenMetricKey;
@@ -21,6 +22,8 @@ export function TokenInline({
   height?: number;
   tokensPerRow?: number;
 }) {
+  const perf = useOptionalPerf();
+  const tokensPerRow = tokensPerRowProp ?? perf?.params.tokensPerRow ?? 32;
   const metrics = useMemo(() => availableMetrics(record), [record]);
   const [internalMetric, setInternalMetric] = useState<TokenMetricKey>(metrics[0] ?? "logprobs");
   const metric = metricProp ?? internalMetric;
