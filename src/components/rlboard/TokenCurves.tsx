@@ -1,15 +1,10 @@
 import { useMemo } from "react";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-} from "recharts";
 import type { RLBoardRecord } from "@/lib/rlboard/schema";
 import { aggregate } from "@/lib/rlboard/colors";
 import { useOptionalPerf } from "@/lib/rlboard/perf";
+import { SimpleLineChart } from "./SimpleCharts";
 
-/**
- * Multi-line per-token curve. For long sequences, downsamples to <=maxPoints
- * so the SVG stays responsive. Drives a comparison of logp / value / reward / adv.
- */
+/** Multi-line per-token curve with bounded downsampling and no Recharts runtime state. */
 export function TokenCurves({
   record,
   range,
@@ -36,54 +31,41 @@ export function TokenCurves({
     const adv = slice(record.advantages);
     const ent = slice(record.entropy);
     const n = Math.max(
-      logp?.length ?? 0, val?.length ?? 0, tr?.length ?? 0, adv?.length ?? 0, ent?.length ?? 0,
+      logp?.length ?? 0,
+      reflp?.length ?? 0,
+      val?.length ?? 0,
+      tr?.length ?? 0,
+      adv?.length ?? 0,
+      ent?.length ?? 0,
     );
-    if (n === 0) return [];
+    if (n === 0) return { x: [], logp: [], reflp: [], val: [], tr: [], adv: [], ent: [] };
     const buckets = Math.min(maxPoints, n);
-    const dn = (a?: number[]) => (a ? aggregate(a, buckets).map((b) => b.mean) : undefined);
-    const aLogp = dn(logp);
-    const aRef = dn(reflp);
-    const aVal = dn(val);
-    const aTr = dn(tr);
-    const aAdv = dn(adv);
-    const aEnt = dn(ent);
+    const dn = (a?: number[]) => (a ? aggregate(a, buckets).map((b) => b.mean) : []);
     const baseStart = range ? range[0] : 0;
     const step = n / buckets;
-    return Array.from({ length: buckets }, (_, i) => ({
-      i: Math.round(baseStart + i * step),
-      logp: aLogp?.[i] ?? null,
-      ref_logp: aRef?.[i] ?? null,
-      value: aVal?.[i] ?? null,
-      reward: aTr?.[i] ?? null,
-      adv: aAdv?.[i] ?? null,
-      entropy: aEnt?.[i] ?? null,
-    }));
+    return {
+      x: Array.from({ length: buckets }, (_, i) => Math.round(baseStart + i * step)),
+      logp: dn(logp),
+      reflp: dn(reflp),
+      val: dn(val),
+      tr: dn(tr),
+      adv: dn(adv),
+      ent: dn(ent),
+    };
   }, [record, range, maxPoints]);
 
   return (
-    <div style={{ width: "100%", height }}>
-      <ResponsiveContainer>
-        <LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-          <XAxis dataKey="i" stroke="var(--muted-foreground)" fontSize={11} />
-          <YAxis stroke="var(--muted-foreground)" fontSize={11} />
-          <Tooltip
-            contentStyle={{
-              background: "var(--popover)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              fontSize: 12,
-            }}
-          />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Line type="monotone" dataKey="logp" stroke="var(--primary)" dot={false} strokeWidth={1.5} />
-          <Line type="monotone" dataKey="ref_logp" stroke="var(--accent)" dot={false} strokeWidth={1.2} strokeDasharray="3 3" />
-          <Line type="monotone" dataKey="value" stroke="var(--info)" dot={false} strokeWidth={1.5} />
-          <Line type="monotone" dataKey="reward" stroke="var(--success)" dot={false} strokeWidth={1.5} />
-          <Line type="monotone" dataKey="adv" stroke="var(--warning)" dot={false} strokeWidth={1.2} />
-          <Line type="monotone" dataKey="entropy" stroke="var(--muted-foreground)" dot={false} strokeWidth={1} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    <SimpleLineChart
+      height={height}
+      xLabels={data.x}
+      series={[
+        { key: "logp", label: "logp", color: "var(--primary)", values: data.logp },
+        { key: "ref", label: "ref_logp", color: "var(--accent)", values: data.reflp, dashed: true },
+        { key: "value", label: "value", color: "var(--info)", values: data.val },
+        { key: "reward", label: "reward", color: "var(--success)", values: data.tr },
+        { key: "adv", label: "adv", color: "var(--warning)", values: data.adv },
+        { key: "entropy", label: "entropy", color: "var(--muted-foreground)", values: data.ent },
+      ]}
+    />
   );
 }
