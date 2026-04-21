@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRLBoard } from "@/lib/rlboard/context";
 import {
   RewardCurve,
@@ -11,10 +11,12 @@ import {
   PerfPanel,
   CriticDiagnostic,
   ResponseDiff,
+  TrajectoryView,
 } from "@/components/rlboard";
 import { parseFiles } from "@/lib/rlboard/parse";
 import { makeSampleRecords, makeLongContextRecord } from "@/lib/rlboard/sample";
-import { tokenCount } from "@/lib/rlboard/schema";
+import { tokenCount, type RLBoardRecord } from "@/lib/rlboard/schema";
+import { deriveSegments } from "@/lib/rlboard/segments";
 
 export const Route = createFileRoute("/playground")({
   head: () => ({
