@@ -257,13 +257,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function SelectedRolloutSection({
-  selected,
-  selectedIndex,
-}: {
+type SelectedRolloutSectionProps = {
   selected: RLBoardRecord | undefined;
   selectedIndex: number;
-}) {
+};
+
+function SelectedRolloutSection(props: SelectedRolloutSectionProps) {
+  const { selected, selectedIndex } = props;
   if (!selected) {
     return (
       <section>
