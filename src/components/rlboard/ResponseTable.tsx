@@ -4,7 +4,7 @@ import { tokenCount } from "@/lib/rlboard/schema";
 import { recordRun } from "@/lib/rlboard/parse";
 import { cn } from "@/lib/utils";
 
-type SortKey = "step" | "reward" | "ref_reward" | "kl" | "length" | "advMean";
+type SortKey = "step" | "reward" | "ref_reward" | "delta" | "kl" | "length" | "advMean";
 
 export function ResponseTable({
   records,
