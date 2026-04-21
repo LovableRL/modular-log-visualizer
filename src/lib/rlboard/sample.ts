@@ -126,6 +126,14 @@ function finalize(
   },
 ): RLBoardRecord {
   const m = synthMetrics(b, opts.step, opts.finalReward);
+  // Deterministic kl derived from id — must NOT use Math.random(),
+  // otherwise SSR and client values diverge and React hydration fails.
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < opts.rolloutId.length; i++) {
+    h = (h ^ opts.rolloutId.charCodeAt(i)) >>> 0;
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  const klJitter = (h >>> 0) / 0xffffffff;
   return {
     step: opts.step,
     rollout_id: opts.rolloutId,
@@ -136,7 +144,7 @@ function finalize(
     ...m,
     reward: opts.finalReward,
     ref_reward: opts.finalReward - 0.25,
-    kl: 0.05 + Math.random() * 0.05,
+    kl: 0.05 + klJitter * 0.05,
     metadata: { model: "Qwen3-demo", chat_template: "qwen3", ...(opts.metadata ?? {}) },
   };
 }
