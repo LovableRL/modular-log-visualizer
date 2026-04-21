@@ -10,3 +10,4 @@ export { TokenInline } from "./TokenInline";
 export { TokenCurves } from "./TokenCurves";
 export { TokenExplorer } from "./TokenExplorer";
 export { ModuleCard } from "./ModuleCard";
+export { PerfPanel } from "./PerfPanel";

@@ -1,6 +1,7 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
 import { RLBoardProvider } from "@/lib/rlboard/context";
+import { PerfProvider } from "@/lib/rlboard/perf";
 import { SiteHeader } from "@/components/SiteHeader";
 
 function NotFoundComponent() {
@@ -65,11 +66,13 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   return (
-    <RLBoardProvider>
-      <div className="min-h-screen bg-background text-foreground">
-        <SiteHeader />
-        <Outlet />
-      </div>
-    </RLBoardProvider>
+    <PerfProvider>
+      <RLBoardProvider>
+        <div className="min-h-screen bg-background text-foreground">
+          <SiteHeader />
+          <Outlet />
+        </div>
+      </RLBoardProvider>
+    </PerfProvider>
   );
 }

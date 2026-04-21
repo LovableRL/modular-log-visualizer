@@ -1,11 +1,14 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import type { RLBoardRecord, TokenMetricKey } from "@/lib/rlboard/schema";
 import { getTokenMetric, availableMetrics, TOKEN_METRIC_LABELS } from "@/lib/rlboard/schema";
-import { aggregate, heatBucket, robustExtent } from "@/lib/rlboard/colors";
+import { heatBucket, robustExtent } from "@/lib/rlboard/colors";
+import { useAggregatedBuckets } from "@/lib/rlboard/useAggregator";
+import { useOptionalPerf } from "@/lib/rlboard/perf";
 
 /**
  * TokenHeatmap — supports very long sequences (256k+) via:
- *   • bucket aggregation (auto bucket size based on width)
+ *   • bucket aggregation in a Web Worker (auto bucket size based on width,
+ *     overridable via PerfPanel)
  *   • range selection on the minimap for drill-down
  */
 export function TokenHeatmap({
@@ -23,6 +26,7 @@ export function TokenHeatmap({
   const [internalMetric, setInternalMetric] = useState<TokenMetricKey>(metrics[0] ?? "logprobs");
   const metric = metricProp ?? internalMetric;
   const data = useMemo(() => getTokenMetric(record, metric) ?? [], [record, metric]);
+  const perf = useOptionalPerf();
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(800);
@@ -35,8 +39,9 @@ export function TokenHeatmap({
     return () => ro.disconnect();
   }, []);
 
-  const buckets = useMemo(() => aggregate(data, w), [data, w]);
-  const extent = useMemo(() => robustExtent(buckets.map((b) => b.mean)), [buckets]);
+  const targetBuckets = perf?.params.bucketsOverride ?? w;
+  const { mean } = useAggregatedBuckets(data, targetBuckets);
+  const extent = useMemo(() => robustExtent(Array.from(mean)), [mean]);
 
   // selection
   const [drag, setDrag] = useState<{ x0: number; x1: number } | null>(null);
@@ -53,10 +58,9 @@ export function TokenHeatmap({
     const heatVars = ["--heat-0", "--heat-1", "--heat-2", "--heat-3", "--heat-4", "--heat-5"];
     const computed = getComputedStyle(document.documentElement);
     const palette = heatVars.map((v) => computed.getPropertyValue(v).trim());
-    const colW = w / Math.max(1, buckets.length);
-    for (let i = 0; i < buckets.length; i++) {
-      const b = buckets[i];
-      const c = palette[heatBucket(b.mean, extent[0], extent[1])] || "#444";
+    const colW = w / Math.max(1, mean.length);
+    for (let i = 0; i < mean.length; i++) {
+      const c = palette[heatBucket(mean[i], extent[0], extent[1])] || "#444";
       ctx.fillStyle = c;
       ctx.fillRect(i * colW, 0, Math.ceil(colW + 1), height);
     }
@@ -68,7 +72,7 @@ export function TokenHeatmap({
       ctx.strokeStyle = "rgba(255,255,255,0.5)";
       ctx.strokeRect(x0 + 0.5, 0.5, x1 - x0, height - 1);
     }
-  }, [buckets, extent, w, height, drag]);
+  }, [mean, extent, w, height, drag]);
 
   const tokenAt = (px: number) => {
     if (data.length === 0) return 0;
@@ -92,7 +96,7 @@ export function TokenHeatmap({
             ))}
           </select>
           <span className="font-mono">
-            n={data.length.toLocaleString()} · buckets={buckets.length} · {(data.length / Math.max(1, buckets.length)).toFixed(1)} tok/px
+            n={data.length.toLocaleString()} · buckets={mean.length} · {(data.length / Math.max(1, mean.length)).toFixed(1)} tok/px
           </span>
         </div>
         <div className="flex items-center gap-2">
