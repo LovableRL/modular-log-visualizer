@@ -137,7 +137,7 @@ export function TokenPager({
                 // keep current token roughly in view
                 const anchor = start;
                 setPageSize(next);
-                setPage(Math.floor(anchor / next));
+                setRawPage(Math.floor(anchor / next));
               }}
               className="rounded border border-border bg-input px-2 py-1 font-mono text-foreground"
             >
