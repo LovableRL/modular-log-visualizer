@@ -191,6 +191,7 @@ export function TokenPager({
         <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
           <span className="font-mono uppercase tracking-widest">tokens · {TOKEN_METRIC_LABELS[metric]}</span>
           <span className="font-mono">
+            {hiddenCount > 0 ? <span className="mr-2 text-warning">filtered {hiddenCount} special</span> : null}
             range [{extent[0].toFixed(3)}, {extent[1].toFixed(3)}]
           </span>
         </div>
