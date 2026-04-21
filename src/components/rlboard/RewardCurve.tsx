@@ -1,13 +1,8 @@
 import { useMemo } from "react";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-} from "recharts";
 import type { RLBoardRecord } from "@/lib/rlboard/schema";
+import { SimpleLineChart } from "./SimpleCharts";
 
-/**
- * Reward Curve module — mean reward per step (vs ref_reward when available).
- * Independent: pass `records`. Composable: drop into any layout.
- */
+/** Reward Curve module — mean reward per step (vs ref_reward when available). */
 export function RewardCurve({ records, height = 260 }: { records: RLBoardRecord[]; height?: number }) {
   const data = useMemo(() => {
     const byStep = new Map<number, { reward: number[]; ref: number[] }>();
@@ -27,25 +22,13 @@ export function RewardCurve({ records, height = 260 }: { records: RLBoardRecord[
   }, [records]);
 
   return (
-    <div style={{ width: "100%", height }}>
-      <ResponsiveContainer>
-        <LineChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-          <XAxis dataKey="step" stroke="var(--muted-foreground)" fontSize={11} />
-          <YAxis stroke="var(--muted-foreground)" fontSize={11} />
-          <Tooltip
-            contentStyle={{
-              background: "var(--popover)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              fontSize: 12,
-            }}
-          />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          <Line type="monotone" dataKey="reward" stroke="var(--primary)" strokeWidth={2} dot={false} />
-          <Line type="monotone" dataKey="ref" stroke="var(--accent)" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
+    <SimpleLineChart
+      height={height}
+      xLabels={data.map((d) => d.step)}
+      series={[
+        { key: "reward", label: "reward", color: "var(--primary)", values: data.map((d) => d.reward) },
+        { key: "ref", label: "ref", color: "var(--accent)", values: data.map((d) => d.ref), dashed: true },
+      ]}
+    />
   );
 }
