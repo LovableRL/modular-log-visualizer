@@ -266,6 +266,72 @@ function SelectedRolloutSection({
   selected: RLBoardRecord | undefined;
   selectedIndex: number;
 }) {
+  if (!selected) {
+    return (
+      <section>
+        <SectionTitle>3 · Trajectory</SectionTitle>
+        <ModuleCard title="trajectory-view" subtitle="Select a rollout above">
+          <p className="py-12 text-center text-sm text-muted-foreground">
+            No rollout selected.
+          </p>
+        </ModuleCard>
+      </section>
+    );
+  }
+
+  const subtitle = `#${selectedIndex} · step ${selected.step} · reward ${selected.reward.toFixed(3)}${
+    typeof selected.ref_reward === "number"
+      ? ` · Δ ${(selected.reward - selected.ref_reward).toFixed(3)}`
+      : ""
+  }`;
+
+  return (
+    <section>
+      <SectionTitle>3 · Trajectory</SectionTitle>
+      <ModuleCard
+        title="trajectory-view"
+        subtitle={subtitle}
+        actions={
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {tokenCount(selected).toLocaleString()} tokens
+          </span>
+        }
+      >
+        <details className="mb-4 text-sm">
+          <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+            prompt &amp; response text
+          </summary>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div>
+              <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                prompt
+              </div>
+              <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background/40 p-3 font-mono text-xs">
+                {selected.prompt}
+              </pre>
+            </div>
+            <div>
+              <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                response
+              </div>
+              <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background/40 p-3 font-mono text-xs">
+                {selected.response}
+              </pre>
+            </div>
+          </div>
+        </details>
+        <TrajectoryView record={selected} />
+      </ModuleCard>
+    </section>
+  );
+}
+
+  selected,
+  selectedIndex,
+}: {
+  selected: RLBoardRecord | undefined;
+  selectedIndex: number;
+}) {
   const segments = useMemo(
     () => (selected ? deriveSegments(selected) : []),
     [selected],
