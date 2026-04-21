@@ -16,11 +16,13 @@ export function TokenHeatmap({
   metric: metricProp,
   height = 80,
   onRangeSelect,
+  highlightRange,
 }: {
   record: RLBoardRecord;
   metric?: TokenMetricKey;
   height?: number;
   onRangeSelect?: (range: [number, number] | null) => void;
+  highlightRange?: [number, number] | null;
 }) {
   const metrics = useMemo(() => availableMetrics(record), [record]);
   const [internalMetric, setInternalMetric] = useState<TokenMetricKey>(metrics[0] ?? "logprobs");
@@ -64,6 +66,15 @@ export function TokenHeatmap({
       ctx.fillStyle = c;
       ctx.fillRect(i * colW, 0, Math.ceil(colW + 1), height);
     }
+    if (highlightRange && data.length > 0) {
+      const hx0 = (highlightRange[0] / data.length) * w;
+      const hx1 = (highlightRange[1] / data.length) * w;
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(hx0, 0, Math.max(2, hx1 - hx0), height);
+      ctx.strokeStyle = "rgba(120, 200, 255, 0.95)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(hx0 + 1, 1, Math.max(2, hx1 - hx0) - 2, height - 2);
+    }
     if (drag) {
       ctx.fillStyle = "rgba(255,255,255,0.15)";
       const x0 = Math.min(drag.x0, drag.x1);
@@ -72,7 +83,7 @@ export function TokenHeatmap({
       ctx.strokeStyle = "rgba(255,255,255,0.5)";
       ctx.strokeRect(x0 + 0.5, 0.5, x1 - x0, height - 1);
     }
-  }, [mean, extent, w, height, drag]);
+  }, [mean, extent, w, height, drag, highlightRange, data.length]);
 
   const tokenAt = (px: number) => {
     if (data.length === 0) return 0;

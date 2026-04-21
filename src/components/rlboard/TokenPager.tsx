@@ -75,24 +75,13 @@ export function TokenPager({
             page {(page + 1).toLocaleString()} / {pageCount.toLocaleString()} highlighted
           </span>
         </div>
-        <div className="relative">
-          <TokenHeatmap
-            record={record}
-            metric={metric}
-            height={48}
-            onRangeSelect={handleMinimapRange}
-          />
-          {/* page-window overlay */}
-          <div
-            className="pointer-events-none absolute inset-y-0 rounded-sm border border-primary/70 bg-primary/15"
-            style={{
-              left: `${(start / Math.max(1, total)) * 100}%`,
-              width: `${((end - start) / Math.max(1, total)) * 100}%`,
-              top: 32, // align with canvas (after the meta row)
-              bottom: 22, // above the legend hint
-            }}
-          />
-        </div>
+        <TokenHeatmap
+          record={record}
+          metric={metric}
+          height={48}
+          onRangeSelect={handleMinimapRange}
+          highlightRange={range}
+        />
       </div>
 
       {/* Pager controls */}
