@@ -195,21 +195,24 @@ export function TokenPager({
             range [{extent[0].toFixed(3)}, {extent[1].toFixed(3)}]
           </span>
         </div>
-        <div className="flex flex-wrap gap-[2px] font-mono text-xs leading-6">
+        <div className="flex flex-wrap gap-x-0 gap-y-[2px] font-mono text-xs leading-6">
           {pageValues.map((v, i) => {
-            const tok = tokens?.[i] ?? "·";
-            const display =
-              tok === "\n" ? "↵\n" : tok === " " ? "·" : tok.replace(/\n/g, "↵");
-            const isNewline = tok === "\n";
+            const rawTok = tokens?.[i] ?? "·";
+            const { text, glue } = decodeTokenForDisplay(rawTok);
+            const isNewline = rawTok === "\n" || text === "\n";
+            const display = isNewline
+              ? "↵"
+              : text.replace(/\n/g, "↵").replace(/ /g, "·");
             return (
               <span
                 key={i}
-                title={`#${start + i}  ${JSON.stringify(tok)}  ${v.toFixed(4)}`}
+                title={`#${start + i}  ${JSON.stringify(rawTok)}  ${v.toFixed(4)}`}
                 className="inline-block rounded-sm px-1 py-0.5"
                 style={{
                   background: heatColor(v, extent[0], extent[1]),
                   color: "var(--background)",
                   flexBasis: isNewline ? "100%" : undefined,
+                  marginLeft: glue ? 0 : 2,
                 }}
               >
                 {display}
