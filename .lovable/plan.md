@@ -1,121 +1,138 @@
 
-# RL Logging Board v2 — 模块化可视化工具改造方案
 
-把原来「单文件 Streamlit + 紧耦合可视化」的工具，重构成 **Python 核心库 + Web 前端看板 + Skill 包** 三位一体的体系，每个可视化既能单独使用，又能拼装成完整看板，并原生支持 256k token 长序列。
+# Agentic RL — Trajectory 分区块可视化
+
+参考 Langfuse 的 trace/span 视图，把单条 rollout 从"一串扁平 token"重新理解为"一条 agentic 轨迹 = 若干有语义的 segment(step/turn/tool-call/think/answer)"，左侧列 trajectory 时间线，右侧展示被选中 segment 的 token 级细节(logp / KL / entropy / reward …)。
 
 ---
 
-## 一、整体架构
+## 一、数据模型扩展(向后兼容)
 
+`src/lib/rlboard/schema.ts` 新增可选字段:
+
+```ts
+export interface TrajectorySegment {
+  id: string;
+  kind: "user" | "assistant" | "think" | "tool_call" | "tool_result" | "observation" | "answer" | "system";
+  label?: string;           // e.g. "search(...)" / "turn 2"
+  start: number;            // token index inclusive
+  end: number;              // token index exclusive
+  tool?: string;            // tool name for tool_call
+  reward?: number;          // segment-level reward (if assigned)
+  metadata?: Record<string, unknown>;
+}
+
+export interface RLBoardRecord {
+  // ...existing
+  segments?: TrajectorySegment[];   // NEW — optional
+}
 ```
-rl-logboard/
-├── packages/
-│   ├── rlboard-core (Python)        # 数据模型 + 加载 + 采样 + 指标
-│   ├── rlboard-viz  (Python)        # 单图可视化(matplotlib/plotly),CLI
-│   ├── rlboard-skill (skill 包)     # AI/脚本可调用的 visualization skill
-│   └── @rlboard/react (npm-ready)   # React 组件库,每个图独立导出
-└── apps/
-    └── board (TanStack Start)       # 集成看板 demo + 文档 + 上传调试
+
+Auto-derivation(当 jsonl 未提供 `segments`): 从 `response_tokens` 里扫描常见 chat 标记 (`<|im_start|>role`, `<think>...</think>`, `<tool_call>...</tool_call>`, `<tool_response>...</tool_response>`, `assistant` / `user` 边界) 生成 segments —— 函数 `deriveSegments(record)` 放在新文件 `src/lib/rlboard/segments.ts`。
+
+---
+
+## 二、新模块
+
+### 1. `SegmentAggregates` (`src/lib/rlboard/segments.ts`)
+纯函数，对每个 segment 计算:
+- `mean_logp`, `mean_ref_logp`, `sum_kl`, `mean_kl`
+- `mean_entropy`, `mean_value`, `sum_token_reward`
+- `length` (tokens)
+
+Web Worker 友好，只读 `Float32Array` 风格的切片。
+
+### 2. `TrajectoryTimeline` (`src/components/rlboard/TrajectoryTimeline.tsx`)
+Langfuse 风格的左侧栏:
+
+```text
+┌ trajectory ──────────────────────────────────┐
+│ ▸ user          · 42 tok                     │
+│ ▾ assistant     · 1 284 tok                  │
+│   • think       ████░░░░  KL 0.12  H 1.4     │
+│   • tool_call   █░░░░░░░  search(...)        │
+│   • tool_result ██░░░░░░  230 tok            │
+│   • answer      ██████░░  r +0.85  KL 0.08   │
+│ ▸ user                                       │
+│ ▾ assistant                                  │
+│   ...                                        │
+└──────────────────────────────────────────────┘
 ```
 
-所有层共用同一份 **JSON Schema (`RLBoardRecord`)**,前后端、Python/JS 类型一致。
+每行:
+- 色条宽度 = segment token 长度(log-scale 可选)
+- 色条颜色 = 选中 metric (KL / logp / reward / entropy) 的 segment 均值 → 复用 `heatColor`
+- 右侧小徽标显示关键数值
+- `kind` 用图标 + 颜色区分(think/tool/answer/user)
+- 点击选中 → 驱动右侧详情
+- 支持折叠(按 turn 分组)、按 kind 过滤、按 metric 排序
+
+虚拟滚动(基于 index 窗口)保证数千 segment 也流畅。
+
+### 3. `SegmentDetail` (`src/components/rlboard/SegmentDetail.tsx`)
+右侧详情面板:
+- **Header**: kind badge · token 范围 · 长度 · 关键聚合 (mean KL, Σ reward …)
+- **Segment minimap**: 复用 `TokenHeatmap`,但 `range=[segment.start, segment.end]`
+- **Tokens**: 复用 `TokenPager` 但 `record` 替换为 segment 视图(token 下标窗口化,内部自动分页；若 segment < pageSize 则不再分页)
+- **Curves**: 复用 `TokenCurves` 限定到 segment 范围,支持多 metric 叠加(logp / ref_logp / KL / entropy)
+- **Diff**: 若 segment 是 `answer` 且有 ref_response,显示局部 `ResponseDiff`
+
+### 4. `TrajectoryView` (`src/components/rlboard/TrajectoryView.tsx`)
+组合容器 —— 左右 `grid-cols-12`:
+- `col-span-4`: `TrajectoryTimeline` + 顶部的 metric 选择器 / kind 过滤 chips
+- `col-span-8`: `SegmentDetail`(选中的 segment)
+- 顶部工具条:metric 切换、按 reward/KL 排序定位、"jump to max KL segment"
+
+256k 性能:
+- segment 均值在 `aggregate.worker.ts` 里批量算(一次性,结果缓存)
+- timeline 本身是 O(segments),与 token 总数解耦
+- 右侧复用已有虚拟化 TokenPager,segment 内部分页仍走现成路径
 
 ---
 
-## 二、数据 Schema(扩展兼容)
+## 三、Playground 集成
 
-**保留**原字段:`prompt / response / response_tokens / logprobs / ref_logprobs / values / token_rewards / reward / step / ref_response / ref_reward`。
+`src/routes/playground.tsx` 新增 "Section 3b · Trajectory"(或替换现在的 Section 3):
+- 当 `selected.segments` 存在或 `deriveSegments(selected)` 返回 ≥2 段时,默认展示 `TrajectoryView`
+- 否则保留原 `TokenPager` 全量视图
+- 顶部加一个 toggle: `[ Flat tokens | Trajectory ]`
 
-**新增可选字段**(无则降级):
-- `entropy: float[]` — 每 token 熵
-- `attention_entropy: float[]`
-- `advantages: float[]` — GAE advantage
-- `group_id: str` — GRPO/RLOO 同组 rollout 关联
-- `prompt_tokens: str[]` — 让 prompt 也支持 token 级可视化
-- `metadata: dict` — 任意标签(任务类型、模型、数据源)
-
-文件层面继续支持 `rollout_samples/<run>/*.jsonl`,新增目录扫描 + watch 模式(用于训练中实时刷新)。
+示例数据 `sample.ts` 追加一个 agentic 样本:多 turn + think + tool_call + answer,确保默认 Sample 按钮就能看到 trajectory 视图。
 
 ---
 
-## 三、可视化模块清单(每个独立 + 可组合)
+## 四、文件变更清单
 
-| 模块 ID | 内容 | 独立形态 | 集成形态 |
-|---|---|---|---|
-| `reward-curve` | reward / ref_reward 训练曲线 | ✅ | ✅ |
-| `reward-distribution` | 每 step 直方图 + 与 ref 差值 | ✅ | ✅ |
-| `response-table` | 按 reward / KL / advantage / length 多维排序的样本表 | ✅ | ✅ |
-| `token-heatmap` | token × 指标的热力图(支持 256k) | ✅ | ✅ |
-| `token-inline` | 内联染色文本(每 token 按指标着色) | ✅ | ✅ |
-| `token-curves` | 单条 response 的 logprob/value/reward 多线图 | ✅ | ✅ |
-| `kl-explorer` | KL/log_ratio 异常 token 钻取 | ✅ | ✅ |
-| `value-vs-reward` | critic value 与 token reward 对比/MSE | ✅ | ✅ |
-| `group-compare` | GRPO 同组多 rollout 对比 | ✅ | ✅ |
-| `rl-vs-sft-diff` | RL 与 reference 模型的 response/reward 对比 | ✅ | ✅ |
+**新增**
+- `src/lib/rlboard/segments.ts` — 类型、`deriveSegments`、`aggregateSegments`
+- `src/components/rlboard/TrajectoryTimeline.tsx`
+- `src/components/rlboard/SegmentDetail.tsx`
+- `src/components/rlboard/TrajectoryView.tsx`
 
-每个模块在三种形态都有对应实现:
-- **Python**: `from rlboard_viz import TokenHeatmap; TokenHeatmap(records).render()` → matplotlib/plotly figure
-- **CLI/Skill**: `rlboard render token-heatmap --input data.jsonl --step 4 --output heatmap.html`
-- **React**: `import { TokenHeatmap } from "@rlboard/react"` → 接 `records` props 渲染
+**修改**
+- `src/lib/rlboard/schema.ts` — 加 `segments`、`TrajectorySegment`
+- `src/lib/rlboard/sample.ts` — 追加 agentic 示例 record
+- `src/lib/rlboard/parse.ts` — 解析 jsonl 时保留 `segments`,无则延迟 derive
+- `src/components/rlboard/index.ts` — 导出新组件
+- `src/routes/playground.tsx` — 接入 `TrajectoryView` + toggle
+
+不改:`TokenPager` / `TokenHeatmap` / `TokenCurves` / `ResponseDiff` / 现有 worker —— 通过 props(range、record 切片)复用。
 
 ---
 
-## 四、256k Token 长序列方案(双管齐下)
+## 五、交互细节
 
-### A. 概览层(Overview)
-- **Minimap 热力条**:整条 response 压缩成一条横向热力图(下采样到屏幕宽度,保留 min/max/mean)
-- **聚合分桶**:可调 bucket 大小(64/256/1k token),桶内聚合后渲染,瞬时显示全部 256k
-
-### B. 详情层(Drill-down)
-- **虚拟滚动**:基于 TanStack Virtual,只渲染视口内 token,256k 也能 60fps 滚动
-- **联动**:点击 minimap 任意位置 → 详情视图跳转
-- **范围选择**:框选 minimap 一段 → 详情只渲染该段并放大
-
-### C. 性能策略
-- Web Worker 中预计算分桶 + 颜色映射,主线程零阻塞
-- 数据通过 Float32Array 传递,避免 JSON 巨对象
-- Python 侧用 numpy 分桶,CLI 输出静态 HTML(自包含,可分享)
+- **左右联动**:timeline 选中 → 详情滚动到顶;详情里点 minimap → 只在 segment 内跳页;详情里的 token 悬浮高亮同步回 timeline 位置指针
+- **Metric 全局**:顶部 metric 选择同时驱动 timeline 色条与右侧 curves,保持一致心智模型
+- **快捷定位**:`jump to max |KL|` / `jump to min reward segment` 按钮(agentic debug 常用)
+- **键盘**:`j/k` 上下切 segment,`[` / `]` 切 page
 
 ---
 
-## 五、Skill 形态
+## 六、可选后续(不在本轮)
+- 多 rollout 并排 trajectory 对比(GRPO group 视图)
+- 按 tool 名聚合的统计面板
+- Export 选中 segment 为独立 jsonl
 
-发布 `rlboard` skill,提供给 AI/脚本调用:
-- `rlboard.list_runs(dir)` — 列出所有训练 run
-- `rlboard.load(path)` — 加载并标准化数据
-- `rlboard.render(module_id, records, **opts)` — 输出 PNG/HTML/JSON
-- `rlboard.report(records, modules=[...])` — 一键拼装多模块 HTML 报告(自包含,可邮件/IM 分享)
+确认即开始实施。
 
-适用场景:训练完自动生成可视化报告、CI 检查异常 token、AI Agent 分析训练日志。
-
----
-
-## 六、Web 看板(本次 Lovable 项目主交付)
-
-TanStack Start 应用,作为组件库的 **showcase + 实用工具**:
-
-- **首页**:介绍 + 模块画廊(每个可视化一张卡片,点击进入独立 demo)
-- **/playground**:上传 jsonl(或选用内置示例)→ 实时渲染所有模块的完整看板
-- **/modules/:id**:每个可视化的独立页(单独嵌入、查看 props、复制代码片段)
-- **/docs**:数据 schema、Python 用法、Skill 用法、嵌入指南
-
-界面风格:深色 + 数据密集型(类似 Grafana / Weights & Biases),响应式。
-
----
-
-## 七、本次实施分阶段
-
-**阶段 1(本轮)** — Web 看板 + 核心可视化模块(React 端)
-1. 数据加载层(jsonl 解析、schema 校验、Web Worker 分桶)
-2. 模块库 v1:reward-curve、reward-distribution、response-table、token-heatmap(含 minimap+虚拟滚动)、token-inline、token-curves
-3. Playground 页(上传/示例数据 → 完整看板)
-4. 模块独立页 + 内置押韵任务示例数据
-5. 文档页(schema + 嵌入用法)
-
-**阶段 2(后续轮)** — Python `rlboard-core` + `rlboard-viz` + CLI,目录 watch 模式
-
-**阶段 3(后续轮)** — Skill 打包发布、报告生成、GRPO 组对比
-
----
-
-确认即开始实施阶段 1。
