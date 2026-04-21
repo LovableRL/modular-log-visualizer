@@ -97,6 +97,8 @@ function PlaygroundPage() {
         ) : null}
       </section>
 
+      <PerfPanel />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <ModuleCard title="reward-curve" subtitle="Mean reward per step (with reference)">
           <RewardCurve records={records} />
