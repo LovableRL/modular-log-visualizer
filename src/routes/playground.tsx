@@ -1,12 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRLBoard } from "@/lib/rlboard/context";
 import {
   RewardCurve,
   RewardDistribution,
   RewardDeltaDistribution,
   ResponseTable,
-  TokenPager,
   ModuleCard,
   PerfPanel,
   CriticDiagnostic,
@@ -16,7 +15,6 @@ import {
 import { parseFiles } from "@/lib/rlboard/parse";
 import { makeSampleRecords, makeLongContextRecord } from "@/lib/rlboard/sample";
 import { tokenCount, type RLBoardRecord } from "@/lib/rlboard/schema";
-import { deriveSegments } from "@/lib/rlboard/segments";
 
 export const Route = createFileRoute("/playground")({
   head: () => ({
@@ -266,26 +264,11 @@ function SelectedRolloutSection({
   selected: RLBoardRecord | undefined;
   selectedIndex: number;
 }) {
-  const segments = useMemo(
-    () => (selected ? deriveSegments(selected) : []),
-    [selected],
-  );
-  const hasTrajectory = segments.length >= 2;
-  const [view, setView] = useState<"flat" | "trajectory">(
-    hasTrajectory ? "trajectory" : "flat",
-  );
-  // re-default when selection changes
-  const lastIdxRef = useRef(selectedIndex);
-  if (lastIdxRef.current !== selectedIndex) {
-    lastIdxRef.current = selectedIndex;
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-  }
-
   if (!selected) {
     return (
       <section>
-        <SectionTitle>3 · Token explorer</SectionTitle>
-        <ModuleCard title="token-pager" subtitle="Select a rollout above">
+        <SectionTitle>3 · Trajectory</SectionTitle>
+        <ModuleCard title="trajectory-view" subtitle="Select a rollout above">
           <p className="py-12 text-center text-sm text-muted-foreground">
             No rollout selected.
           </p>
@@ -302,36 +285,9 @@ function SelectedRolloutSection({
 
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between">
-        <SectionTitle>3 · {view === "trajectory" ? "Trajectory" : "Token explorer"}</SectionTitle>
-        <div className="inline-flex overflow-hidden rounded-md border border-border text-[11px] font-mono">
-          <button
-            onClick={() => setView("flat")}
-            className="px-2 py-1 transition-colors"
-            style={{
-              background: view === "flat" ? "var(--secondary)" : "transparent",
-              color: view === "flat" ? "var(--foreground)" : "var(--muted-foreground)",
-            }}
-          >
-            flat tokens
-          </button>
-          <button
-            onClick={() => setView("trajectory")}
-            disabled={!hasTrajectory}
-            className="px-2 py-1 transition-colors disabled:opacity-40"
-            style={{
-              background: view === "trajectory" ? "var(--secondary)" : "transparent",
-              color: view === "trajectory" ? "var(--foreground)" : "var(--muted-foreground)",
-            }}
-            title={hasTrajectory ? "" : "No multi-segment structure detected"}
-          >
-            trajectory ({segments.length})
-          </button>
-        </div>
-      </div>
-
+      <SectionTitle>3 · Trajectory</SectionTitle>
       <ModuleCard
-        title={view === "trajectory" ? "trajectory-view" : "token-pager"}
+        title="trajectory-view"
         subtitle={subtitle}
         actions={
           <span className="font-mono text-[11px] text-muted-foreground">
@@ -362,11 +318,7 @@ function SelectedRolloutSection({
             </div>
           </div>
         </details>
-        {view === "trajectory" ? (
-          <TrajectoryView record={selected} />
-        ) : (
-          <TokenPager record={selected} />
-        )}
+        <TrajectoryView record={selected} />
       </ModuleCard>
     </section>
   );
