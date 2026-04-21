@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { RLBoardRecord, TokenMetricKey } from "@/lib/rlboard/schema";
 import {
   getTokenMetric,
@@ -38,12 +38,10 @@ export function TokenPager({
   const [metric, setMetric] = useState<TokenMetricKey>(metrics[0] ?? "logprobs");
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const [page, setPage] = useState(0);
-
-  // reset page when record/pageSize changes to stay valid
-  useEffect(() => {
-    setPage((p) => Math.min(p, pageCount - 1));
-  }, [pageCount]);
+  const [rawPage, setRawPage] = useState(0);
+  // Derive a safe page index instead of reconciling with an effect — avoids
+  // the setState-in-effect loop that crashed Recharts subscribers.
+  const page = Math.max(0, Math.min(rawPage, pageCount - 1));
 
   const start = page * pageSize;
   const end = Math.min(total, start + pageSize);
@@ -57,7 +55,7 @@ export function TokenPager({
   const tokens = record.response_tokens?.slice(start, end);
   const extent = useMemo(() => robustExtent(pageValues), [pageValues]);
 
-  const goto = (p: number) => setPage(Math.max(0, Math.min(pageCount - 1, p)));
+  const goto = (p: number) => setRawPage(Math.max(0, Math.min(pageCount - 1, p)));
 
   const handleMinimapRange = (r: [number, number] | null) => {
     if (!r) return;
@@ -139,7 +137,7 @@ export function TokenPager({
                 // keep current token roughly in view
                 const anchor = start;
                 setPageSize(next);
-                setPage(Math.floor(anchor / next));
+                setRawPage(Math.floor(anchor / next));
               }}
               className="rounded border border-border bg-input px-2 py-1 font-mono text-foreground"
             >
