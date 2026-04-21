@@ -52,10 +52,16 @@ const MODULES: { id: string; title: string; tag: string; desc: string }[] = [
     desc: "Multi-line per-token curves (logp / value / reward / adv / entropy).",
   },
   {
+    id: "token-pager",
+    title: "Token Pager",
+    tag: "long-context",
+    desc: "Original-style page navigation + minimap highlight. Bounded DOM at 256k.",
+  },
+  {
     id: "token-explorer",
     title: "Token Explorer",
     tag: "composite",
-    desc: "Heatmap minimap + inline tokens + curves, linked by a shared range selection.",
+    desc: "Heatmap minimap + paged drill-down, linked by a shared range selection.",
   },
 ];
 
