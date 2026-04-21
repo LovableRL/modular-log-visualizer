@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { RLBoardRecord, TokenMetricKey } from "@/lib/rlboard/schema";
 import { getTokenMetric, availableMetrics, TOKEN_METRIC_LABELS } from "@/lib/rlboard/schema";
 import { heatColor, robustExtent } from "@/lib/rlboard/colors";
+import { decodeTokenForDisplay } from "@/lib/rlboard/tokens";
 import { useOptionalPerf } from "@/lib/rlboard/perf";
 
 /**
@@ -88,15 +89,24 @@ export function TokenInline({
             const cells = [];
             for (let i = rowStart; i < rowEnd; i++) {
               const v = values[i];
-              const tok = tokens?.[i] ?? "·";
+              const rawTok = tokens?.[i] ?? "·";
+              const { text, glue } = decodeTokenForDisplay(rawTok);
+              const display =
+                rawTok === "\n" || text === "\n"
+                  ? "↵"
+                  : text.replace(/\n/g, "↵").replace(/ /g, "·");
               cells.push(
                 <span
                   key={i}
-                  title={`#${start + i}  ${tok}  ${v.toFixed(4)}`}
+                  title={`#${start + i}  ${rawTok}  ${v.toFixed(4)}`}
                   className="inline-block px-1.5 py-0.5 rounded-sm"
-                  style={{ background: heatColor(v, extent[0], extent[1]), color: "var(--background)" }}
+                  style={{
+                    background: heatColor(v, extent[0], extent[1]),
+                    color: "var(--background)",
+                    marginLeft: glue ? 0 : 2,
+                  }}
                 >
-                  {tok === "\n" ? "↵" : tok === " " ? "·" : tok}
+                  {display}
                 </span>,
               );
             }

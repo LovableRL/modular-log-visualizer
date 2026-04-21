@@ -7,7 +7,7 @@ import {
   tokenCount,
 } from "@/lib/rlboard/schema";
 import { heatColor, robustExtent } from "@/lib/rlboard/colors";
-import { isSpecialToken } from "@/lib/rlboard/tokens";
+import { isSpecialToken, decodeTokenForDisplay } from "@/lib/rlboard/tokens";
 import { useRLBoard } from "@/lib/rlboard/context";
 import { TokenHeatmap } from "./TokenHeatmap";
 import { TokenCurves } from "./TokenCurves";
