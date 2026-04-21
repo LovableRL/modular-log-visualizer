@@ -10,6 +10,8 @@ export { TokenHeatmap } from "./TokenHeatmap";
 export { TokenInline } from "./TokenInline";
 export { TokenCurves } from "./TokenCurves";
 export { TokenPager } from "./TokenPager";
+export { TokenTable } from "./TokenTable";
+export { TokenHoverCard } from "./TokenHoverCard";
 export { TokenExplorer } from "./TokenExplorer";
 export { CriticDiagnostic } from "./CriticDiagnostic";
 export { ResponseDiff } from "./ResponseDiff";

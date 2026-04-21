@@ -16,12 +16,14 @@ export function TokenInline({
   range,
   height = 360,
   tokensPerRow: tokensPerRowProp,
+  showValues = false,
 }: {
   record: RLBoardRecord;
   metric?: TokenMetricKey;
   range?: [number, number] | null;
   height?: number;
   tokensPerRow?: number;
+  showValues?: boolean;
 }) {
   const perf = useOptionalPerf();
   const tokensPerRow = tokensPerRowProp ?? perf?.params.tokensPerRow ?? 32;
@@ -99,14 +101,23 @@ export function TokenInline({
                 <span
                   key={i}
                   title={`#${start + i}  ${rawTok}  ${v.toFixed(4)}`}
-                  className="inline-block px-1.5 py-0.5 rounded-sm"
-                  style={{
-                    background: heatColor(v, extent[0], extent[1]),
-                    color: "var(--background)",
-                    marginLeft: glue ? 0 : 2,
-                  }}
+                  className="inline-flex flex-col items-stretch"
+                  style={{ marginLeft: glue ? 0 : 2 }}
                 >
-                  {display}
+                  <span
+                    className="rounded-sm px-1.5 py-0.5 text-center"
+                    style={{
+                      background: heatColor(v, extent[0], extent[1]),
+                      color: "var(--background)",
+                    }}
+                  >
+                    {display}
+                  </span>
+                  {showValues && (
+                    <span className="text-center text-[9px] tabular-nums text-muted-foreground">
+                      {Number.isFinite(v) ? v.toFixed(3) : "—"}
+                    </span>
+                  )}
                 </span>,
               );
             }
