@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRLBoard } from "@/lib/rlboard/context";
 import {
   RewardCurve,
@@ -49,6 +49,39 @@ function PlaygroundPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPerf, setShowPerf] = useState(false);
+
+  // Per-section visibility (persisted)
+  const SECTIONS = [
+    { id: "metrics", label: "metrics" },
+    { id: "rollouts", label: "rollouts" },
+    { id: "trajectory", label: "trajectory" },
+    { id: "diagnostics", label: "diagnostics" },
+  ] as const;
+  type SectionId = (typeof SECTIONS)[number]["id"];
+  const [visibleSections, setVisibleSections] = useState<Set<SectionId>>(() => {
+    if (typeof window === "undefined") return new Set(SECTIONS.map((s) => s.id));
+    try {
+      const raw = localStorage.getItem("rlboard:sections");
+      if (raw) return new Set(JSON.parse(raw) as SectionId[]);
+    } catch {
+      /* ignore */
+    }
+    return new Set(SECTIONS.map((s) => s.id));
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("rlboard:sections", JSON.stringify(Array.from(visibleSections)));
+    } catch {
+      /* ignore */
+    }
+  }, [visibleSections]);
+  const toggleSection = (id: SectionId) =>
+    setVisibleSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const onFiles = async (files: File[]) => {
     setError(null);
@@ -139,6 +172,37 @@ function PlaygroundPage() {
           </div>
         </div>
 
+        {/* Section visibility chips */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+            sections
+          </span>
+          {SECTIONS.map((s) => {
+            const active = visibleSections.has(s.id);
+            return (
+              <button
+                key={s.id}
+                onClick={() => toggleSection(s.id)}
+                className="rounded-full border px-3 py-0.5 font-mono text-[11px] transition-colors"
+                style={{
+                  borderColor: active ? "var(--primary)" : "var(--border)",
+                  background: active
+                    ? "color-mix(in oklab, var(--primary) 18%, transparent)"
+                    : "transparent",
+                  color: active ? "var(--foreground)" : "var(--muted-foreground)",
+                }}
+                title={active ? `Hide ${s.label}` : `Show ${s.label}`}
+              >
+                {active ? "✓ " : "  "}
+                {s.label}
+              </button>
+            );
+          })}
+          <span className="ml-2 text-[10px] text-muted-foreground">
+            tip: drag bottom-right corner of any card to resize
+          </span>
+        </div>
+
         {/* Run chips — only when more than one run is loaded */}
         {runs.length > 1 && (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
@@ -183,62 +247,86 @@ function PlaygroundPage() {
       {showPerf && <PerfPanel />}
 
       {/* Section 1 — Training metrics */}
-      <section>
-        <SectionTitle>1 · Training metrics</SectionTitle>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <ModuleCard title="reward-curve" subtitle="Mean reward per step (vs reference)">
-            <RewardCurve records={filteredRecords} height={240} />
-          </ModuleCard>
-          <ModuleCard title="reward-distribution" subtitle="Per-step reward histogram">
-            <RewardDistribution records={filteredRecords} height={240} />
-          </ModuleCard>
-          <ModuleCard
-            title="reward − ref_reward"
-            subtitle="How much the policy beats the reference"
-          >
-            <RewardDeltaDistribution records={filteredRecords} height={240} />
-          </ModuleCard>
-        </div>
-      </section>
+      {visibleSections.has("metrics") && (
+        <section>
+          <SectionTitle>1 · Training metrics</SectionTitle>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <ModuleCard
+              title="reward-curve"
+              subtitle="Mean reward per step (vs reference)"
+              resizable
+              defaultHeight={300}
+            >
+              <RewardCurve records={filteredRecords} height={240} />
+            </ModuleCard>
+            <ModuleCard
+              title="reward-distribution"
+              subtitle="Per-step reward histogram"
+              resizable
+              defaultHeight={300}
+            >
+              <RewardDistribution records={filteredRecords} height={240} />
+            </ModuleCard>
+            <ModuleCard
+              title="reward − ref_reward"
+              subtitle="How much the policy beats the reference"
+              resizable
+              defaultHeight={300}
+            >
+              <RewardDeltaDistribution records={filteredRecords} height={240} />
+            </ModuleCard>
+          </div>
+        </section>
+      )}
 
       {/* Section 2 — Rollout list */}
-      <section>
-        <SectionTitle>2 · Rollouts</SectionTitle>
-        <ModuleCard
-          title="response-table"
-          subtitle="Click a row to load it into the token explorer below"
-          actions={
-            <span className="font-mono text-[11px] text-muted-foreground">
-              selected #{selectedIndex} · {selected ? tokenCount(selected).toLocaleString() : 0} tokens
-            </span>
-          }
-        >
-          <ResponseTable
-            records={filteredRecords}
-            selectedIndex={selectedIndex}
-            onSelect={setSelectedIndex}
-            height={360}
-          />
-        </ModuleCard>
-      </section>
+      {visibleSections.has("rollouts") && (
+        <section>
+          <SectionTitle>2 · Rollouts</SectionTitle>
+          <ModuleCard
+            title="response-table"
+            subtitle="Click a row to load it into the token explorer below"
+            resizable
+            defaultHeight={420}
+            actions={
+              <span className="font-mono text-[11px] text-muted-foreground">
+                selected #{selectedIndex} · {selected ? tokenCount(selected).toLocaleString() : 0} tokens
+              </span>
+            }
+          >
+            <ResponseTable
+              records={filteredRecords}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
+              height={360}
+            />
+          </ModuleCard>
+        </section>
+      )}
 
       {/* Section 3 — Selected rollout: trajectory or flat tokens */}
-      <SelectedRolloutSection selected={selected} selectedIndex={selectedIndex} />
+      {visibleSections.has("trajectory") && (
+        <SelectedRolloutSection selected={selected} selectedIndex={selectedIndex} />
+      )}
 
       {/* Section 4 — Critic + diff diagnostics */}
-      {selected && (
+      {visibleSections.has("diagnostics") && selected && (
         <section>
           <SectionTitle>4 · Diagnostics</SectionTitle>
           <div className="grid gap-4 lg:grid-cols-2">
             <ModuleCard
               title="critic-diagnostic"
               subtitle="value vs token_reward (lower MSE = better critic fit)"
+              resizable
+              defaultHeight={300}
             >
               <CriticDiagnostic record={selected} height={240} />
             </ModuleCard>
             <ModuleCard
               title="rl-vs-ref-text"
               subtitle="Word-level diff against ref_response"
+              resizable
+              defaultHeight={300}
             >
               <ResponseDiff record={selected} />
             </ModuleCard>
@@ -291,6 +379,8 @@ function SelectedRolloutSection(props: SelectedRolloutSectionProps) {
       <ModuleCard
         title="trajectory-view"
         subtitle={subtitle}
+        resizable
+        defaultHeight={780}
         actions={
           <span className="font-mono text-[11px] text-muted-foreground">
             {tokenCount(selected).toLocaleString()} tokens
