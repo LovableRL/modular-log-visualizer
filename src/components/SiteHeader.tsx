@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 export function SiteHeader() {
   return (
@@ -40,8 +41,10 @@ export function SiteHeader() {
           >
             Source ↗
           </a>
+          <ThemeSwitcher />
         </nav>
       </div>
     </header>
   );
 }
+
