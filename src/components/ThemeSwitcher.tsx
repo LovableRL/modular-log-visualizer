@@ -14,32 +14,32 @@ const THEMES: ThemeMeta[] = [
   {
     id: "grafana",
     label: "Grafana",
-    hint: "Dark · teal/magenta · default",
-    swatch: ["oklch(0.16 0.02 260)", "oklch(0.78 0.16 175)", "oklch(0.70 0.20 320)"],
+    hint: "Dark · muted teal · default",
+    swatch: ["oklch(0.16 0.012 260)", "oklch(0.72 0.07 175)", "oklch(0.66 0.08 320)"],
   },
   {
     id: "paper",
     label: "Paper",
-    hint: "Light · editorial",
-    swatch: ["oklch(0.99 0.005 95)", "oklch(0.55 0.18 255)", "oklch(0.55 0.20 330)"],
+    hint: "Light · soft editorial",
+    swatch: ["oklch(0.99 0.003 95)", "oklch(0.50 0.08 255)", "oklch(0.52 0.09 330)"],
   },
   {
     id: "solarized",
     label: "Solarized",
-    hint: "Dark · classic blue/orange",
-    swatch: ["oklch(0.22 0.03 200)", "oklch(0.72 0.16 195)", "oklch(0.70 0.18 60)"],
+    hint: "Dark · dusty blue/amber",
+    swatch: ["oklch(0.22 0.018 200)", "oklch(0.68 0.08 195)", "oklch(0.66 0.09 60)"],
   },
   {
     id: "monokai",
     label: "Monokai",
-    hint: "Dark · vivid green/magenta",
-    swatch: ["oklch(0.20 0.015 90)", "oklch(0.78 0.22 145)", "oklch(0.72 0.26 350)"],
+    hint: "Dark · muted green/rose",
+    swatch: ["oklch(0.20 0.010 90)", "oklch(0.74 0.10 145)", "oklch(0.68 0.10 350)"],
   },
   {
     id: "nord",
     label: "Nord",
-    hint: "Dark · cool arctic",
-    swatch: ["oklch(0.26 0.02 250)", "oklch(0.72 0.10 220)", "oklch(0.72 0.12 180)"],
+    hint: "Dark · cool & quiet",
+    swatch: ["oklch(0.26 0.014 250)", "oklch(0.70 0.06 220)", "oklch(0.70 0.07 180)"],
   },
 ];
 
