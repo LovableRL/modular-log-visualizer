@@ -64,6 +64,40 @@ function PlaygroundPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPerf, setShowPerf] = useState(false);
+  const [loadingDemo, setLoadingDemo] = useState(false);
+
+  const loadDemo = async () => {
+    setError(null);
+    setLoadingDemo(true);
+    try {
+      const res = await fetch(DEMO_URL, { cache: "no-cache" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const { records: recs, errors } = parseJsonl(text, "demo");
+      if (recs.length === 0) {
+        throw new Error(`Demo file parsed 0 valid records (${errors.length} errors)`);
+      }
+      setRecords(recs);
+      setSource(
+        `demo/rlboard-demo.jsonl (${recs.length} records${errors.length ? `, ${errors.length} skipped` : ""})`,
+      );
+      setSelectedIndex(0);
+    } catch (e) {
+      setError(
+        `Failed to load demo jsonl: ${(e as Error).message}. Upload your own .jsonl to continue.`,
+      );
+    } finally {
+      setLoadingDemo(false);
+    }
+  };
+
+  // Auto-load the demo file on first mount when no records are present yet.
+  useEffect(() => {
+    if (records.length === 0 && !loadingDemo) {
+      void loadDemo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Per-section visibility (persisted)
   const SECTIONS = [
@@ -149,25 +183,49 @@ function PlaygroundPage() {
               Upload .jsonl (multi)
             </button>
             <button
-              onClick={() => {
-                setRecords(makeSampleRecords());
-                setSource("Built-in sample (rhyme task)");
-                setSelectedIndex(0);
-              }}
-              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
+              onClick={() => void loadDemo()}
+              disabled={loadingDemo}
+              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary disabled:opacity-50"
+              title="Re-fetch /demo/rlboard-demo.jsonl"
             >
-              Sample
+              {loadingDemo ? "loading…" : "Reload demo"}
             </button>
-            <button
-              onClick={() => {
-                setRecords([makeLongContextRecord(262144)]);
-                setSource("Synthetic 256k-token rollout (BPE-style)");
-                setSelectedIndex(0);
-              }}
+            <a
+              href={DEMO_URL}
+              download="rlboard-demo.jsonl"
               className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
-              title="Generate one synthetic 262 144-token rollout to stress-test long-context views"
+              title="Download the demo .jsonl as a template for your own training logs"
             >
-              256k stress-test
+              Download .jsonl
+            </a>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
+                  title="View the expected jsonl record schema"
+                >
+                  Schema
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[480px] max-w-[90vw] p-0">
+                <SchemaPopoverBody />
+              </PopoverContent>
+            </Popover>
+            <label className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={hideSpecialTokens}
+                onChange={(e) => setHideSpecialTokens(e.target.checked)}
+                className="h-3 w-3 accent-primary"
+              />
+              hide &lt;pad&gt; / specials
+            </label>
+            <button
+              onClick={() => setShowPerf((s) => !s)}
+              className="rounded-md border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+              title="Toggle performance overlay"
+            >
+              {showPerf ? "hide perf" : "perf"}
             </button>
             <label className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
               <input
