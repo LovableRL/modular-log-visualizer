@@ -51,10 +51,13 @@ export const Route = createRootRoute({
 });
 
 function RootShell({ children }: { children: React.ReactNode }) {
+  // Apply persisted theme before paint to prevent flash.
+  const themeBootstrap = `(function(){try{var t=localStorage.getItem('rlboard:theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
   return (
     <html lang="en">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
       <body>
         {children}
