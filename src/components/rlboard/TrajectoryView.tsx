@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { RLBoardRecord, TokenMetricKey } from "@/lib/rlboard/schema";
 import { deriveSegments } from "@/lib/rlboard/segments";
 import { TrajectoryTimeline } from "./TrajectoryTimeline";
@@ -6,7 +7,7 @@ import { SegmentDetail } from "./SegmentDetail";
 
 /**
  * Two-pane trajectory view (Langfuse-style):
- *   left  → TrajectoryTimeline (segments)
+ *   left  → TrajectoryTimeline (segments) — collapsible
  *   right → SegmentDetail (token-level metrics for the selected segment)
  *
  * Keyboard: j/k cycle segments.
@@ -18,8 +19,8 @@ export function TrajectoryView({ record }: { record: RLBoardRecord }) {
   const [selectedId, setSelectedId] = useState<string | null>(
     segments[0]?.id ?? null,
   );
+  const [leftOpen, setLeftOpen] = useState(true);
 
-  // re-anchor selection when the record changes
   useEffect(() => {
     if (!segments.find((s) => s.id === selectedId)) {
       setSelectedId(segments[0]?.id ?? null);
@@ -31,7 +32,6 @@ export function TrajectoryView({ record }: { record: RLBoardRecord }) {
     [segments, kindFilter],
   );
 
-  // j/k navigation across visible segments
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target && (e.target as HTMLElement).tagName.match(/INPUT|TEXTAREA|SELECT/)) return;
@@ -59,20 +59,38 @@ export function TrajectoryView({ record }: { record: RLBoardRecord }) {
   }
 
   return (
-    <div className="grid gap-0 overflow-hidden rounded-md border border-border lg:grid-cols-12">
-      <aside className="border-border lg:col-span-4 lg:border-r">
-        <TrajectoryTimeline
-          record={record}
-          selectedId={selected.id}
-          onSelect={setSelectedId}
-          metric={metric}
-          onMetricChange={setMetric}
-          kindFilter={kindFilter}
-          onKindFilterChange={setKindFilter}
-          height={720}
-        />
+    <div
+      className={`grid h-full gap-0 overflow-hidden rounded-md border border-border ${
+        leftOpen ? "lg:grid-cols-[minmax(260px,360px)_1fr]" : "lg:grid-cols-[40px_1fr]"
+      }`}
+    >
+      <aside className="relative flex min-h-0 flex-col border-border lg:border-r">
+        <button
+          onClick={() => setLeftOpen((o) => !o)}
+          className="absolute right-1 top-1 z-10 rounded border border-border bg-card p-1 text-muted-foreground hover:text-foreground"
+          title={leftOpen ? "Hide segment list" : "Show segment list"}
+        >
+          {leftOpen ? <PanelLeftClose className="h-3 w-3" /> : <PanelLeftOpen className="h-3 w-3" />}
+        </button>
+        {leftOpen ? (
+          <TrajectoryTimeline
+            record={record}
+            selectedId={selected.id}
+            onSelect={setSelectedId}
+            metric={metric}
+            onMetricChange={setMetric}
+            kindFilter={kindFilter}
+            onKindFilterChange={setKindFilter}
+          />
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <span className="rotate-180 font-mono text-[10px] uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">
+              segments · {segments.length}
+            </span>
+          </div>
+        )}
       </aside>
-      <section className="lg:col-span-8">
+      <section className="min-h-0 min-w-0">
         <SegmentDetail record={record} segment={selected} metric={metric} />
       </section>
     </div>
