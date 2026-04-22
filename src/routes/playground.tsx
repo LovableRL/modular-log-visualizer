@@ -71,16 +71,16 @@ function PlaygroundPage() {
     setError(null);
     setLoadingDemo(true);
     try {
-      const res = await fetch(DEMO_URL, { cache: "no-cache" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
+      // Demo .jsonl is bundled at build time so it works in any deployment
+      // (TanStack Start's SSR catches `/public/*` paths and returns the SPA shell).
+      const text = demoJsonlText;
       const { records: recs, errors } = parseJsonl(text, "demo");
       if (recs.length === 0) {
         throw new Error(`Demo file parsed 0 valid records (${errors.length} errors)`);
       }
       setRecords(recs);
       setSource(
-        `demo/rlboard-demo.jsonl (${recs.length} records${errors.length ? `, ${errors.length} skipped` : ""})`,
+        `${DEMO_FILENAME} (${recs.length} records${errors.length ? `, ${errors.length} skipped` : ""})`,
       );
       setSelectedIndex(0);
     } catch (e) {
@@ -90,6 +90,18 @@ function PlaygroundPage() {
     } finally {
       setLoadingDemo(false);
     }
+  };
+
+  const downloadDemo = () => {
+    const blob = new Blob([demoJsonlText], { type: "application/x-ndjson" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = DEMO_FILENAME;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Auto-load the demo file on first mount when no records are present yet.
