@@ -66,11 +66,12 @@ export function ModuleCard({
       </header>
       {!collapsed && (
         <div
-          className={cn("relative p-4", resizable && "overflow-auto")}
+          className="relative flex min-h-0 flex-col p-4"
           style={
             resizable
               ? {
                   resize: "vertical",
+                  overflow: "hidden",
                   height: defaultHeight,
                   minHeight,
                   maxHeight: "90vh",
@@ -78,7 +79,7 @@ export function ModuleCard({
               : undefined
           }
         >
-          {children}
+          <div className="min-h-0 flex-1">{children}</div>
           {resizable && (
             <div
               className="pointer-events-none absolute bottom-1 right-1 text-muted-foreground/40"

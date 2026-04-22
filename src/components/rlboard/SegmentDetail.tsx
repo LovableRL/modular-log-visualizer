@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { RLBoardRecord, TokenMetricKey, TrajectorySegment } from "@/lib/rlboard/schema";
 import { tokenCount } from "@/lib/rlboard/schema";
 import { aggregateSegment, kindColor, kindIcon } from "@/lib/rlboard/segments";
@@ -6,15 +6,8 @@ import { TokenPager } from "./TokenPager";
 import { TokenCurves } from "./TokenCurves";
 import { ResponseDiff } from "./ResponseDiff";
 
-/**
- * Right pane of the trajectory view. Shows header summary + minimap +
- * pager + curves + (optional) diff for the selected segment.
- *
- * Implementation note: we build a lightweight "scoped record" by slicing
- * every per-token array to [start, end) and clearing `segments` so child
- * components fall back to flat behavior. Token text is sliced from
- * `response_tokens`, and `response` is reconstructed from those tokens.
- */
+type BlockId = "stats" | "tokens" | "curves" | "diff";
+
 export function SegmentDetail({
   record,
   segment,
@@ -33,8 +26,26 @@ export function SegmentDetail({
   const isAnswer = segment.kind === "answer" || segment.kind === "assistant";
   const showDiff = isAnswer && !!record.ref_response;
 
+  const [visible, setVisible] = useState<Set<BlockId>>(
+    () => new Set<BlockId>(["stats", "tokens", "curves", "diff"]),
+  );
+  const toggle = (id: BlockId) =>
+    setVisible((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const blocks: { id: BlockId; label: string; show?: boolean }[] = [
+    { id: "stats", label: "stats" },
+    { id: "tokens", label: "tokens" },
+    { id: "curves", label: "curves" },
+    { id: "diff", label: "diff", show: showDiff },
+  ];
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* header */}
       <div className="border-b border-border p-3">
         <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -57,30 +68,65 @@ export function SegmentDetail({
             tokens [{segment.start.toLocaleString()}–{segment.end.toLocaleString()}) · {len.toLocaleString()}
           </span>
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-[11px] text-muted-foreground sm:grid-cols-4">
-          <KV k="mean logp" v={agg.mean_logp} />
-          <KV k="mean KL" v={agg.mean_kl} />
-          <KV k="Σ KL" v={agg.sum_kl} />
-          <KV k="mean H" v={agg.mean_entropy} />
-          <KV k="mean V" v={agg.mean_value} />
-          <KV k="Σ token reward" v={agg.sum_token_reward} />
+
+        {/* sub-block visibility chips */}
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            blocks
+          </span>
+          {blocks
+            .filter((b) => b.show !== false)
+            .map((b) => {
+              const on = visible.has(b.id);
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => toggle(b.id)}
+                  className="rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors"
+                  style={{
+                    borderColor: on ? "var(--primary)" : "var(--border)",
+                    background: on
+                      ? "color-mix(in oklab, var(--primary) 18%, transparent)"
+                      : "transparent",
+                    color: on ? "var(--foreground)" : "var(--muted-foreground)",
+                  }}
+                >
+                  {on ? "✓ " : "  "}{b.label}
+                </button>
+              );
+            })}
         </div>
+
+        {visible.has("stats") && (
+          <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-[11px] text-muted-foreground sm:grid-cols-4">
+            <KV k="mean logp" v={agg.mean_logp} />
+            <KV k="mean KL" v={agg.mean_kl} />
+            <KV k="Σ KL" v={agg.sum_kl} />
+            <KV k="mean H" v={agg.mean_entropy} />
+            <KV k="mean V" v={agg.mean_value} />
+            <KV k="Σ token reward" v={agg.sum_token_reward} />
+          </div>
+        )}
       </div>
 
       {/* body */}
-      <div className="flex-1 space-y-4 overflow-auto p-3">
+      <div className="min-h-0 flex-1 space-y-4 overflow-auto p-3">
         {len === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">Empty segment.</p>
         ) : (
           <>
-            <TokenPager record={scoped} defaultPageSize={pickPageSize(len)} />
-            <div className="rounded-md border border-border bg-background/40 p-3">
-              <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                segment curves · {metric}
+            {visible.has("tokens") && (
+              <TokenPager record={scoped} defaultPageSize={pickPageSize(len)} />
+            )}
+            {visible.has("curves") && (
+              <div className="rounded-md border border-border bg-background/40 p-3">
+                <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                  segment curves · {metric}
+                </div>
+                <TokenCurves record={scoped} height={220} />
               </div>
-              <TokenCurves record={scoped} height={220} />
-            </div>
-            {showDiff && (
+            )}
+            {showDiff && visible.has("diff") && (
               <div className="rounded-md border border-border bg-background/40 p-3">
                 <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                   rl-vs-ref-text
