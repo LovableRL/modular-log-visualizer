@@ -22,8 +22,9 @@ import { Slider } from "@/components/ui/slider";
 import { parseFiles, parseJsonl } from "@/lib/rlboard/parse";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { tokenCount, type RLBoardRecord } from "@/lib/rlboard/schema";
+import demoJsonlText from "@/lib/rlboard/demo-data.jsonl?raw";
 
-const DEMO_URL = "/demo/rlboard-demo.jsonl";
+const DEMO_FILENAME = "rlboard-demo.jsonl";
 
 export const Route = createFileRoute("/playground")({
   head: () => ({
