@@ -21,3 +21,4 @@ export { PerfPanel } from "./PerfPanel";
 export { TrajectoryView } from "./TrajectoryView";
 export { TrajectoryTimeline } from "./TrajectoryTimeline";
 export { SegmentDetail } from "./SegmentDetail";
+export { KpiOverview } from "./KpiOverview";
