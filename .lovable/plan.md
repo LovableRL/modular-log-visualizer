@@ -1,72 +1,98 @@
 
 
-# 让 token 面板真正显示数值
+# 去卡片化 + 自适应区块布局
 
-当前问题：token 块只有颜色和文字，metric 数值（logp / KL / entropy）只藏在 hover tooltip 里 — 用户无法一眼看到具体值，也无法横向比较。色卡传达"高低"，数字传达"多少"，二者都需要。
+把 Playground 从"卡片堆叠"改造为"密度优先的工作台"：去掉每个区块的边框/标题栏/内边距，改用极简的标签 + 分隔线；区块之间用可拖拽的分隔条调整大小，区块内部组件用 `ResizeObserver` 监听容器尺寸，实时把宽高传给图表/表格，做到拉伸时所有元素自适应。
 
-## 解决方案：三档密度 + 显式数值
+## 视觉变化
 
-在 `TokenPager` 顶部加一个 **density / view-mode 切换**，让用户按需选择信息密度，而不是单一臃肿布局：
-
-```text
-[ Compact | Values | Table ]
-```
-
-### 1. Compact（默认 · 现状）
-保留现在的紧凑彩色 chip，适合快速扫视 1–2k token 的 page。仅微调：
-- 鼠标 hover 时在 token 上方弹出**常驻 popover**，显示 `#idx · token · logp · KL · entropy · reward`（多 metric 一次看全，不用切下拉）。
-
-### 2. Values（新增 · 关键修复）
-每个 token chip 下方直接渲染当前 metric 的数值，类似：
+之前（卡片化）：
 
 ```text
-┌────────┬────────┬────────┐
-│ Policy │·gradient│·methods│   ← decoded token
-│ -0.81  │ -0.93   │ -1.02  │   ← metric value
-└────────┴────────┴────────┘
+┌─ ╔══ reward-curve ══════════════╗ ──┐
+│  ║ Mean reward per step          ║  │
+│  ╠═══════════════════════════════╣  │
+│  ║   [chart]                     ║  │
+│  ╚═══════════════════════════════╝  │
+└─────────────────────────────────────┘
 ```
 
-- 数值用 `tabular-nums` 等宽字体 + 3 位小数
-- 字号 9–10px，颜色 `--muted-foreground`，避免压过 token 文本
-- 自动按 metric 类型选格式：logp/KL → `.3f`，entropy → `.2f`，rank → 整数
-- 默认 page size 自动降到 512（防止屏幕过载）
+之后（去卡片化）：
 
-### 3. Table（新增 · 最高密度）
-当用户要"逐 token 审计"时切到表格视图：
+```text
+reward-curve · mean reward per step               ⋮
+─────────────────────────────────────────────────────
+  [chart fills 100% width × current height]
+─────────────────────────────────────────────────────
+↕ drag to resize
+```
 
-| # | token | logp | ref_logp | KL | entropy | reward | value |
-|---|-------|------|----------|----|---------|--------|-------|
-| 0 | Policy | −0.81 | −0.79 | 0.02 | 1.41 | 0.00 | 0.12 |
-| 1 | ·gradient | −0.93 | −0.88 | 0.05 | 1.32 | 0.00 | 0.15 |
+- 没有圆角边框、没有 padding、没有阴影
+- 只有一行 mono 小标题 + 一根 1px 分隔线
+- 区块之间用可拖拽 splitter（横向 + 纵向）
 
-- 所有可用 metric 同时成列（不再需要切下拉）
-- 行级 mini bar 背景：每个数值单元格用 `linear-gradient` 画出归一化条，保留色觉同时给出数字
-- 虚拟滚动（复用 `@tanstack/react-virtual`）支持整 page
-- 列可点击排序：快速跳到 max KL / min logp 的 token
-- 行点击 → 高亮在上方 minimap 中的位置
+## 三个核心改动
 
-## 额外通用增强（三个视图共享）
+### 1. 新增 `ResizableBlock`（替代 `ModuleCard`）
 
-1. **Hover popover（替换 tooltip）**：原生 `title` 属性在颜色块上几乎不可读。改用轻量自绘 popover，多 metric 一次显示，并显示 `z-score`（这个值在分布中多极端）。
-2. **Minimap 上的数值刻度**：在右上角的 `range [a, b]` 旁补一个 5 档色阶图例 + 对应数值，让色 → 值映射可解释。
-3. **Token chip 自适应缩放**：当数值显示开启时，chip 宽度按"max(token width, value width)"撑开，避免错位。
+```tsx
+<ResizableBlock title="reward-curve" subtitle="Mean reward per step">
+  {({ width, height }) => <RewardCurve width={width} height={height} />}
+</ResizableBlock>
+```
+
+特性：
+- **render-prop 传 size**：内部用 `ResizeObserver` 监听容器，把 `{width, height}` 实时传给子组件，拉伸时图表立刻 reflow
+- **无边框无 padding**：仅 `border-b` 分隔标题与内容
+- **collapse 按钮**：标题右侧一个小三角，折叠后只剩一行
+- **垂直 resize handle**：底部一根 4px 高的可拖拽条（鼠标变 `ns-resize`）
+- 高度状态写入 `localStorage`（key: `rlboard:h:${id}`），刷新保留
+
+### 2. 区块间用 `react-resizable-panels` 做 splitter
+
+把 metrics 三列、diagnostics 两列、以及 sections 之间的间距改成真正的 panel group：
+
+```tsx
+<PanelGroup direction="horizontal">
+  <Panel defaultSize={33}><RewardCurveBlock /></Panel>
+  <PanelResizeHandle />
+  <Panel defaultSize={33}><RewardDistBlock /></Panel>
+  <PanelResizeHandle />
+  <Panel defaultSize={34}><RewardDeltaBlock /></Panel>
+</PanelGroup>
+```
+
+依赖已经在 `src/components/ui/resizable.tsx` 就位，直接复用。
+
+Sections 之间也包一个 vertical PanelGroup，让用户可以把 metrics 缩成一条，给 trajectory 让出更多空间。
+
+### 3. 图表/表格组件接受外部 size
+
+当前 `RewardCurve / RewardDistribution / CriticDiagnostic / TokenTable / ResponseTable` 大多固定 `height` prop。改成：
+
+- 同时接受 `width?: number; height?: number`
+- 如果传入则用传入值；否则继续 fallback 到自身默认
+- 内部 SVG/recharts 用 `ResponsiveContainer` 包一层（或直接用传入 width/height）
+
+`TrajectoryView` 已经是 grid 布局，只需把固定 `360px` 段列宽改为 panel 拖拽。
 
 ## 文件改动
 
-**修改**
-- `src/components/rlboard/TokenPager.tsx` — 加 view-mode 切换 + Compact/Values/Table 分支渲染 + 色阶图例
-- `src/components/rlboard/TokenInline.tsx` — 同步 Values 模式（trajectory segment 详情用得到）
-- `src/components/rlboard/SegmentDetail.tsx` — 把新 view-mode 透传给内嵌的 TokenPager
-
 **新增**
-- `src/components/rlboard/TokenTable.tsx` — Table 视图（虚拟滚动 + 全 metric 列 + mini bar）
-- `src/components/rlboard/TokenHoverCard.tsx` — 多 metric 悬浮卡（替代原生 title）
+- `src/components/rlboard/ResizableBlock.tsx` — 替代 ModuleCard 的去卡片化容器（含 ResizeObserver + 折叠 + 高度持久化）
 
-**不动**：worker、aggregate、schema、sample —— 纯 UI 层增强。
+**修改**
+- `src/routes/playground.tsx` — 把所有 `ModuleCard` 换成 `ResizableBlock`，metrics/diagnostics 行用 `PanelGroup` 包裹，sections 之间用 vertical `PanelGroup`
+- `src/components/rlboard/RewardCurve.tsx`、`RewardDistribution.tsx`、`RewardDeltaDistribution.tsx`、`CriticDiagnostic.tsx`、`ResponseTable.tsx`、`ResponseDiff.tsx` — 接受 `width?` / `height?` props，移除内部固定高度
+- `src/components/rlboard/TrajectoryView.tsx` — 左侧 segment list 用 PanelGroup 让用户拖宽
+- `src/components/rlboard/index.ts` — 导出 ResizableBlock
 
-## 默认行为
-- 首次进入：`Compact` 视图（保留熟悉感）
-- Page size ≤ 512 自动建议 `Values`
-- Page size ≤ 128 自动建议 `Table`
-- 选择被记忆在 `useRLBoard` context，跨 segment 切换不丢失
+**删除/弃用**
+- `ModuleCard.tsx` 保留但不再被 playground 使用（modules 路由仍可能用到，不动）
+
+## 兼容性
+
+- 持久化 key 用统一前缀 `rlboard:layout:*`，避免污染
+- 折叠/visibility chips 保留（顶部 toolbar 不变）
+- 现有响应式断点（`lg:grid-cols-3`）由 PanelGroup 接管，移动端 fallback 成纵向堆叠
 
