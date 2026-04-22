@@ -22,8 +22,9 @@ import { Slider } from "@/components/ui/slider";
 import { parseFiles, parseJsonl } from "@/lib/rlboard/parse";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { tokenCount, type RLBoardRecord } from "@/lib/rlboard/schema";
+import demoJsonlText from "@/lib/rlboard/demo-data.jsonl?raw";
 
-const DEMO_URL = "/demo/rlboard-demo.jsonl";
+const DEMO_FILENAME = "rlboard-demo.jsonl";
 
 export const Route = createFileRoute("/playground")({
   head: () => ({
@@ -70,16 +71,16 @@ function PlaygroundPage() {
     setError(null);
     setLoadingDemo(true);
     try {
-      const res = await fetch(DEMO_URL, { cache: "no-cache" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
+      // Demo .jsonl is bundled at build time so it works in any deployment
+      // (TanStack Start's SSR catches `/public/*` paths and returns the SPA shell).
+      const text = demoJsonlText;
       const { records: recs, errors } = parseJsonl(text, "demo");
       if (recs.length === 0) {
         throw new Error(`Demo file parsed 0 valid records (${errors.length} errors)`);
       }
       setRecords(recs);
       setSource(
-        `demo/rlboard-demo.jsonl (${recs.length} records${errors.length ? `, ${errors.length} skipped` : ""})`,
+        `${DEMO_FILENAME} (${recs.length} records${errors.length ? `, ${errors.length} skipped` : ""})`,
       );
       setSelectedIndex(0);
     } catch (e) {
@@ -89,6 +90,18 @@ function PlaygroundPage() {
     } finally {
       setLoadingDemo(false);
     }
+  };
+
+  const downloadDemo = () => {
+    const blob = new Blob([demoJsonlText], { type: "application/x-ndjson" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = DEMO_FILENAME;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Auto-load the demo file on first mount when no records are present yet.
@@ -190,14 +203,13 @@ function PlaygroundPage() {
             >
               {loadingDemo ? "loading…" : "Reload demo"}
             </button>
-            <a
-              href={DEMO_URL}
-              download="rlboard-demo.jsonl"
+            <button
+              onClick={downloadDemo}
               className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
               title="Download the demo .jsonl as a template for your own training logs"
             >
               Download .jsonl
-            </a>
+            </button>
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -211,22 +223,6 @@ function PlaygroundPage() {
                 <SchemaPopoverBody />
               </PopoverContent>
             </Popover>
-            <label className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={hideSpecialTokens}
-                onChange={(e) => setHideSpecialTokens(e.target.checked)}
-                className="h-3 w-3 accent-primary"
-              />
-              hide &lt;pad&gt; / specials
-            </label>
-            <button
-              onClick={() => setShowPerf((s) => !s)}
-              className="rounded-md border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
-              title="Toggle performance overlay"
-            >
-              {showPerf ? "hide perf" : "perf"}
-            </button>
             <label className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
               <input
                 type="checkbox"
