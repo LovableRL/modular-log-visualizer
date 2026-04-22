@@ -115,7 +115,7 @@ function PlaygroundPage() {
 
   return (
     <main className="mx-auto w-full max-w-[1400px] space-y-4 px-4 py-4">
-      {/* Toolbar */}
+      {/* Toolbar — row 1: source + actions */}
       <section className="rounded-md border border-border bg-card/40 p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -178,9 +178,10 @@ function PlaygroundPage() {
             </label>
             <button
               onClick={() => setShowPerf((s) => !s)}
-              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
+              className="rounded-md border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
+              title="Toggle performance overlay"
             >
-              {showPerf ? "Hide" : "Show"} perf
+              {showPerf ? "hide perf" : "perf"}
             </button>
           </div>
         </div>
@@ -211,8 +212,11 @@ function PlaygroundPage() {
               </button>
             );
           })}
-          <span className="ml-2 text-[10px] text-muted-foreground">
-            tip: drag splitters between blocks · drag bottom edge of each block to resize height
+          <span
+            className="ml-2 cursor-help font-mono text-[10px] text-muted-foreground"
+            title="Drag splitters between blocks · drag the bottom edge of each block to resize its height"
+          >
+            (?)
           </span>
         </div>
 
@@ -250,30 +254,38 @@ function PlaygroundPage() {
           </div>
         )}
 
-        {/* Sync bar — global step + variance scale (drives metrics + distributions) */}
-        {steps.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-border pt-3">
-            <div className="flex min-w-[260px] flex-1 items-center gap-2">
+        {error ? (
+          <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </section>
+
+      {/* KPI overview */}
+      {records.length > 0 && <KpiOverview records={filteredRecords} step={globalStep} />}
+
+      {/* Sync controls — global step + variance scale (themed sliders) */}
+      {steps.length > 0 && (
+        <section className="rounded-md border border-border/60 bg-card/30 px-3 py-3">
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex min-w-[280px] flex-1 items-center gap-3">
               <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                 step
               </span>
-              <input
-                type="range"
+              <Slider
                 min={steps[0]}
                 max={steps[steps.length - 1]}
                 step={1}
-                value={activeStep}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  // Snap to nearest valid step
+                value={[activeStep]}
+                onValueChange={([v]) => {
                   const nearest = steps.reduce((p, c) =>
                     Math.abs(c - v) < Math.abs(p - v) ? c : p,
                   );
                   setGlobalStep(nearest);
                 }}
-                className="h-1 flex-1 accent-primary"
+                className="flex-1"
               />
-              <span className="min-w-[60px] text-right font-mono text-[11px] text-foreground">
+              <span className="min-w-[72px] text-right font-mono text-[11px] text-foreground">
                 {activeStep}
                 <span className="text-muted-foreground">
                   /{steps[steps.length - 1]}
@@ -282,40 +294,33 @@ function PlaygroundPage() {
               {globalStep != null && (
                 <button
                   onClick={() => setGlobalStep(null)}
-                  className="text-[10px] text-muted-foreground underline hover:text-foreground"
+                  className="font-mono text-[10px] text-muted-foreground underline hover:text-foreground"
                   title="Follow latest step"
                 >
                   latest
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-[260px] items-center gap-3">
               <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                 variance
               </span>
-              <input
-                type="range"
+              <Slider
                 min={0}
                 max={3}
                 step={0.25}
-                value={varianceScale}
-                onChange={(e) => setVarianceScale(Number(e.target.value))}
-                className="h-1 w-32 accent-primary"
-                title="Reward curve ±k·σ band scale"
+                value={[varianceScale]}
+                onValueChange={([v]) => setVarianceScale(v)}
+                className="flex-1"
               />
-              <span className="min-w-[36px] font-mono text-[11px] text-foreground">
+              <span className="min-w-[44px] text-right font-mono text-[11px] text-foreground">
                 ±{varianceScale.toFixed(2)}σ
               </span>
             </div>
           </div>
-        )}
+        </section>
+      )}
 
-        {error ? (
-          <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-      </section>
 
       {showPerf && <PerfPanel />}
 
@@ -326,7 +331,7 @@ function PlaygroundPage() {
           <ResizablePanelGroup
             direction="horizontal"
             id="rlboard-metrics"
-            className="min-h-[260px] rounded-md border border-border/60"
+            className="h-[300px] rounded-md border border-border/60"
           >
             <ResizablePanel defaultSize={34} minSize={18}>
               <ResizableBlock
@@ -393,7 +398,7 @@ function PlaygroundPage() {
             id="response-table"
             title="response-table"
             subtitle="click a row to load it into the trajectory below"
-            defaultHeight={380}
+            defaultHeight={480}
             actions={
               <span className="font-mono text-[11px] text-muted-foreground">
                 selected #{selectedIndex} ·{" "}
@@ -420,7 +425,7 @@ function PlaygroundPage() {
           <ResizablePanelGroup
             direction="horizontal"
             id="rlboard-diagnostics"
-            className="min-h-[260px] rounded-md border border-border/60"
+            className="h-[300px] rounded-md border border-border/60"
           >
             <ResizablePanel defaultSize={50} minSize={20}>
               <ResizableBlock
