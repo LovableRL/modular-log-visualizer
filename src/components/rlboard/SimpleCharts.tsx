@@ -1,3 +1,5 @@
+import { useRef, useState, useCallback } from "react";
+
 type LineSeries = {
   key: string;
   label: string;
@@ -44,6 +46,15 @@ function linePath(values: Array<number | null>, min: number, max: number, x0: nu
   return path.trim();
 }
 
+function fmt(v: number) {
+  if (!Number.isFinite(v)) return "—";
+  const abs = Math.abs(v);
+  if (abs !== 0 && (abs < 0.001 || abs >= 100000)) return v.toExponential(2);
+  if (abs >= 100) return v.toFixed(1);
+  if (abs >= 1) return v.toFixed(3);
+  return v.toFixed(4);
+}
+
 export function SimpleLineChart({
   series,
   xLabels,
@@ -66,10 +77,38 @@ export function SimpleLineChart({
   const yMax = max + span * 0.08;
   const yTicks = niceTicks(yMin, yMax);
   const firstLabel = xLabels?.[0] ?? 0;
-  const lastLabel = xLabels?.[xLabels.length - 1] ?? Math.max(0, (series[0]?.values.length ?? 1) - 1);
+  const n = series[0]?.values.length ?? 0;
+  const lastLabel = xLabels?.[xLabels.length - 1] ?? Math.max(0, n - 1);
+
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ idx: number; px: number } | null>(null);
+
+  const onMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const el = wrapRef.current;
+      if (!el || n === 0) return;
+      const rect = el.getBoundingClientRect();
+      const scale = width / rect.width;
+      const xSvg = (e.clientX - rect.left) * scale;
+      const xRel = Math.max(0, Math.min(plotW, xSvg - PAD.left));
+      const denom = Math.max(1, n - 1);
+      const idx = Math.round((xRel / plotW) * denom);
+      const px = PAD.left + (idx / denom) * plotW;
+      setHover({ idx, px });
+    },
+    [width, plotW, n],
+  );
+
+  const onLeave = useCallback(() => setHover(null), []);
 
   return (
-    <div className="w-full overflow-hidden" style={{ height }}>
+    <div
+      ref={wrapRef}
+      className="relative w-full overflow-hidden"
+      style={{ height }}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+    >
       <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" role="img">
         <rect x="0" y="0" width={width} height={height} fill="transparent" />
         {yTicks.map((t) => {
@@ -102,6 +141,36 @@ export function SimpleLineChart({
             vectorEffect="non-scaling-stroke"
           />
         ))}
+        {hover && (
+          <g pointerEvents="none">
+            <line
+              x1={hover.px}
+              x2={hover.px}
+              y1={PAD.top}
+              y2={PAD.top + plotH}
+              stroke="var(--foreground)"
+              strokeOpacity={0.35}
+              strokeDasharray="2 3"
+              vectorEffect="non-scaling-stroke"
+            />
+            {series.map((s) => {
+              const v = s.values[hover.idx];
+              if (v == null || !Number.isFinite(v)) return null;
+              const cy = scaleY(v, yMin, yMax, PAD.top, plotH);
+              return (
+                <circle
+                  key={s.key}
+                  cx={hover.px}
+                  cy={cy}
+                  r={3.5}
+                  fill="var(--background)"
+                  stroke={s.color}
+                  strokeWidth={1.8}
+                />
+              );
+            })}
+          </g>
+        )}
         <g transform={`translate(${PAD.left}, 8)`}>
           {series.map((s, i) => (
             <g key={s.key} transform={`translate(${i * 128}, 0)`}>
@@ -113,6 +182,40 @@ export function SimpleLineChart({
           ))}
         </g>
       </svg>
+      {hover && (() => {
+        const xLabel = xLabels?.[hover.idx] ?? hover.idx;
+        const rect = wrapRef.current?.getBoundingClientRect();
+        const scale = rect ? rect.width / width : 1;
+        const leftPx = hover.px * scale;
+        const flip = leftPx > (rect?.width ?? width) * 0.6;
+        return (
+          <div
+            className="pointer-events-none absolute z-10 min-w-[120px] rounded-md border border-border bg-popover/95 px-2 py-1.5 font-mono text-[11px] text-popover-foreground shadow-lg backdrop-blur"
+            style={{
+              left: flip ? undefined : leftPx + 10,
+              right: flip ? (rect?.width ?? width) - leftPx + 10 : undefined,
+              top: 8,
+            }}
+          >
+            <div className="mb-1 text-muted-foreground">x = {xLabel}</div>
+            {series.map((s) => {
+              const v = s.values[hover.idx];
+              return (
+                <div key={s.key} className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-sm"
+                      style={{ background: s.color }}
+                    />
+                    <span className="text-muted-foreground">{s.label}</span>
+                  </span>
+                  <span>{v == null || !Number.isFinite(v) ? "—" : fmt(v)}</span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -129,8 +232,35 @@ export function SimpleBarChart({
   const barW = data.length ? plotW / data.length : plotW;
   const yTicks = niceTicks(0, max);
 
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<number | null>(null);
+
+  const onMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const el = wrapRef.current;
+      if (!el || data.length === 0) return;
+      const rect = el.getBoundingClientRect();
+      const scale = width / rect.width;
+      const xSvg = (e.clientX - rect.left) * scale;
+      const xRel = xSvg - PAD.left;
+      if (xRel < 0 || xRel > plotW) {
+        setHover(null);
+        return;
+      }
+      const idx = Math.max(0, Math.min(data.length - 1, Math.floor(xRel / barW)));
+      setHover(idx);
+    },
+    [width, plotW, barW, data.length],
+  );
+
   return (
-    <div className="w-full overflow-hidden" style={{ height }}>
+    <div
+      ref={wrapRef}
+      className="relative w-full overflow-hidden"
+      style={{ height }}
+      onMouseMove={onMove}
+      onMouseLeave={() => setHover(null)}
+    >
       <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" role="img">
         {yTicks.map((t) => {
           const y = scaleY(t, 0, max, PAD.top, plotH);
@@ -149,7 +279,19 @@ export function SimpleBarChart({
           const h = (d.value / max) * plotH;
           const x = PAD.left + i * barW + 2;
           const y = PAD.top + plotH - h;
-          return <rect key={`${d.label}-${i}`} x={x} y={y} width={Math.max(1, barW - 4)} height={h} rx="2" fill="var(--primary)" />;
+          const active = hover === i;
+          return (
+            <rect
+              key={`${d.label}-${i}`}
+              x={x}
+              y={y}
+              width={Math.max(1, barW - 4)}
+              height={h}
+              rx="2"
+              fill="var(--primary)"
+              opacity={hover == null || active ? 1 : 0.55}
+            />
+          );
         })}
         <text x={PAD.left} y={height - 6} className="fill-muted-foreground text-[11px] font-mono">
           {data[0]?.label ?? ""}
@@ -158,6 +300,29 @@ export function SimpleBarChart({
           {data[data.length - 1]?.label ?? ""}
         </text>
       </svg>
+      {hover != null && data[hover] && (() => {
+        const rect = wrapRef.current?.getBoundingClientRect();
+        const scale = rect ? rect.width / width : 1;
+        const cxSvg = PAD.left + hover * barW + barW / 2;
+        const leftPx = cxSvg * scale;
+        const flip = leftPx > (rect?.width ?? width) * 0.6;
+        return (
+          <div
+            className="pointer-events-none absolute z-10 min-w-[110px] rounded-md border border-border bg-popover/95 px-2 py-1.5 font-mono text-[11px] text-popover-foreground shadow-lg backdrop-blur"
+            style={{
+              left: flip ? undefined : leftPx + 10,
+              right: flip ? (rect?.width ?? width) - leftPx + 10 : undefined,
+              top: 8,
+            }}
+          >
+            <div className="mb-0.5 text-muted-foreground">bin {data[hover].label}</div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">count</span>
+              <span>{data[hover].value}</span>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
