@@ -8,6 +8,7 @@ import {
 } from "@/lib/rlboard/schema";
 import { robustExtent } from "@/lib/rlboard/colors";
 import { decodeTokenForDisplay } from "@/lib/rlboard/tokens";
+import { fmtNum } from "@/lib/rlboard/format";
 
 /**
  * Dense per-token table view — every available metric becomes a column.
