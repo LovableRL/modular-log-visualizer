@@ -19,9 +19,11 @@ import {
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { Slider } from "@/components/ui/slider";
-import { parseFiles } from "@/lib/rlboard/parse";
-import { makeSampleRecords, makeLongContextRecord } from "@/lib/rlboard/sample";
+import { parseFiles, parseJsonl } from "@/lib/rlboard/parse";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { tokenCount, type RLBoardRecord } from "@/lib/rlboard/schema";
+
+const DEMO_URL = "/demo/rlboard-demo.jsonl";
 
 export const Route = createFileRoute("/playground")({
   head: () => ({
