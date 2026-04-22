@@ -379,6 +379,8 @@ function SelectedRolloutSection(props: SelectedRolloutSectionProps) {
       <ModuleCard
         title="trajectory-view"
         subtitle={subtitle}
+        resizable
+        defaultHeight={780}
         actions={
           <span className="font-mono text-[11px] text-muted-foreground">
             {tokenCount(selected).toLocaleString()} tokens
