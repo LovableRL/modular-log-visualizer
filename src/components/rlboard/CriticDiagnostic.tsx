@@ -13,11 +13,13 @@ export function CriticDiagnostic({
   record,
   range,
   height = 260,
+  width,
   maxPoints: maxPointsProp,
 }: {
   record: RLBoardRecord;
   range?: [number, number] | null;
   height?: number;
+  width?: number;
   maxPoints?: number;
 }) {
   const perf = useOptionalPerf();
@@ -85,6 +87,7 @@ export function CriticDiagnostic({
       </div>
       <SimpleLineChart
         height={height}
+        width={width}
         xLabels={x}
         series={[
           { key: "value", label: "value (V)", color: "var(--info)", values },
