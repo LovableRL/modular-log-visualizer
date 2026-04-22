@@ -352,7 +352,12 @@ function PlaygroundPage() {
                 defaultHeight={260}
               >
                 {({ width, height }) => (
-                  <RewardDistribution records={filteredRecords} width={width} height={height} />
+                  <RewardDistribution
+                    records={filteredRecords}
+                    step={activeStep}
+                    width={width}
+                    height={height}
+                  />
                 )}
               </ResizableBlock>
             </ResizablePanel>
@@ -367,6 +372,7 @@ function PlaygroundPage() {
                 {({ width, height }) => (
                   <RewardDeltaDistribution
                     records={filteredRecords}
+                    step={activeStep}
                     width={width}
                     height={height}
                   />
