@@ -227,22 +227,6 @@ function PlaygroundPage() {
             >
               {showPerf ? "hide perf" : "perf"}
             </button>
-            <label className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={hideSpecialTokens}
-                onChange={(e) => setHideSpecialTokens(e.target.checked)}
-                className="h-3 w-3 accent-primary"
-              />
-              hide &lt;pad&gt; / specials
-            </label>
-            <button
-              onClick={() => setShowPerf((s) => !s)}
-              className="rounded-md border border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground hover:bg-secondary hover:text-foreground"
-              title="Toggle performance overlay"
-            >
-              {showPerf ? "hide perf" : "perf"}
-            </button>
           </div>
         </div>
 
