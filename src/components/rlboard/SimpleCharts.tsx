@@ -100,8 +100,20 @@ export function SimpleLineChart({
   const plotW = width - PAD.left - PAD.right;
   const plotH = height - PAD.top - PAD.bottom;
   const nums = finite(series.flatMap((s) => s.values));
-  const min = nums.length ? Math.min(...nums) : 0;
-  const max = nums.length ? Math.max(...nums) : 1;
+  // Expand extent to include band edges so the ribbon stays inside the plot.
+  const bandExtents: number[] = [];
+  for (const s of series) {
+    if (!s.band) continue;
+    s.values.forEach((v, i) => {
+      const b = s.band![i];
+      if (v != null && b != null && Number.isFinite(v) && Number.isFinite(b)) {
+        bandExtents.push(v + b, v - b);
+      }
+    });
+  }
+  const all = [...nums, ...bandExtents];
+  const min = all.length ? Math.min(...all) : 0;
+  const max = all.length ? Math.max(...all) : 1;
   const span = Math.max(1e-6, max - min);
   const yMin = min - span * 0.08;
   const yMax = max + span * 0.08;
@@ -160,6 +172,17 @@ export function SimpleLineChart({
         <text x={width - PAD.right} y={height - 6} textAnchor="end" className="fill-muted-foreground text-[11px] font-mono">
           {lastLabel}
         </text>
+        {series.map((s) =>
+          s.band ? (
+            <path
+              key={`${s.key}-band`}
+              d={bandPath(s.values, s.band, yMin, yMax, PAD.left, PAD.top, plotW, plotH)}
+              fill={s.color}
+              fillOpacity={0.14}
+              stroke="none"
+            />
+          ) : null,
+        )}
         {series.map((s) => (
           <path
             key={s.key}
