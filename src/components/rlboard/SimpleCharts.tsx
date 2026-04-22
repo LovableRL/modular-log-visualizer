@@ -48,12 +48,14 @@ export function SimpleLineChart({
   series,
   xLabels,
   height = 260,
+  width: widthProp,
 }: {
   series: LineSeries[];
   xLabels?: Array<string | number>;
   height?: number;
+  width?: number;
 }) {
-  const width = 920;
+  const width = widthProp && widthProp > 0 ? widthProp : 920;
   const plotW = width - PAD.left - PAD.right;
   const plotH = height - PAD.top - PAD.bottom;
   const nums = finite(series.flatMap((s) => s.values));
@@ -115,8 +117,12 @@ export function SimpleLineChart({
   );
 }
 
-export function SimpleBarChart({ data, height = 240 }: { data: BarDatum[]; height?: number }) {
-  const width = 920;
+export function SimpleBarChart({
+  data,
+  height = 240,
+  width: widthProp,
+}: { data: BarDatum[]; height?: number; width?: number }) {
+  const width = widthProp && widthProp > 0 ? widthProp : 920;
   const plotW = width - PAD.left - PAD.right;
   const plotH = height - PAD.top - PAD.bottom;
   const max = Math.max(1, ...data.map((d) => d.value));
