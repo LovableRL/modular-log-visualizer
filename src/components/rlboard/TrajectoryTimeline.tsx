@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
 import type { RLBoardRecord, TokenMetricKey } from "@/lib/rlboard/schema";
 import { TOKEN_METRIC_LABELS } from "@/lib/rlboard/schema";
 import {
@@ -20,7 +19,7 @@ export interface TrajectoryTimelineProps {
   onMetricChange: (m: TokenMetricKey) => void;
   kindFilter: Set<string>;
   onKindFilterChange: (s: Set<string>) => void;
-  height?: number;
+  
 }
 
 const SUPPORTED_METRICS: TokenMetricKey[] = [
@@ -239,5 +238,22 @@ export function TrajectoryTimeline({
         </ul>
       </div>
     </div>
+  );
+}
+
+function SubToggle({ on, onClick, label }: { on: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors"
+      style={{
+        borderColor: on ? "var(--primary)" : "var(--border)",
+        background: on ? "color-mix(in oklab, var(--primary) 18%, transparent)" : "transparent",
+        color: on ? "var(--foreground)" : "var(--muted-foreground)",
+      }}
+      title={on ? `Hide ${label}` : `Show ${label}`}
+    >
+      {on ? "✓ " : "  "}{label}
+    </button>
   );
 }
