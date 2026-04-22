@@ -55,7 +55,7 @@ function RowLine({ label, v, z }: { label: string; v: number; z: number }) {
   return (
     <>
       <span className="truncate">{label}</span>
-      <span className="text-right tabular-nums">{Number.isFinite(v) ? v.toFixed(3) : "—"}</span>
+      <span className="text-right tabular-nums">{fmtNum(v, 3)}</span>
       <span
         className="text-right tabular-nums"
         style={{ color: extreme ? "var(--destructive)" : "var(--muted-foreground)" }}
