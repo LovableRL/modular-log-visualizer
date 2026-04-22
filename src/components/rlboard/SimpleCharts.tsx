@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from "react";
+import { fmtNum } from "@/lib/rlboard/format";
 
 type LineSeries = {
   key: string;
@@ -6,6 +7,8 @@ type LineSeries = {
   color: string;
   values: Array<number | null>;
   dashed?: boolean;
+  /** Optional matching ±band (e.g. std-dev) per index. Same length as values. */
+  band?: Array<number | null>;
 };
 
 type BarDatum = {
@@ -47,12 +50,39 @@ function linePath(values: Array<number | null>, min: number, max: number, x0: nu
 }
 
 function fmt(v: number) {
-  if (!Number.isFinite(v)) return "—";
-  const abs = Math.abs(v);
-  if (abs !== 0 && (abs < 0.001 || abs >= 100000)) return v.toExponential(2);
-  if (abs >= 100) return v.toFixed(1);
-  if (abs >= 1) return v.toFixed(3);
-  return v.toFixed(4);
+  return fmtNum(v, 3);
+}
+
+/** Build an SVG path for a ±band ribbon given centerline values and half-widths. */
+function bandPath(
+  values: Array<number | null>,
+  band: Array<number | null>,
+  min: number,
+  max: number,
+  x0: number,
+  y0: number,
+  w: number,
+  h: number,
+) {
+  const denom = Math.max(1, values.length - 1);
+  const top: string[] = [];
+  const bot: string[] = [];
+  let open = false;
+  values.forEach((v, i) => {
+    const b = band[i];
+    if (v == null || b == null || !Number.isFinite(v) || !Number.isFinite(b)) {
+      open = false;
+      return;
+    }
+    const x = x0 + (i / denom) * w;
+    const yTop = scaleY(v + b, min, max, y0, h);
+    const yBot = scaleY(v - b, min, max, y0, h);
+    top.push(`${open ? "L" : "M"}${x.toFixed(1)},${yTop.toFixed(1)}`);
+    bot.push(`L${x.toFixed(1)},${yBot.toFixed(1)}`);
+    open = true;
+  });
+  if (top.length === 0) return "";
+  return `${top.join(" ")} ${bot.reverse().join(" ")} Z`;
 }
 
 export function SimpleLineChart({
