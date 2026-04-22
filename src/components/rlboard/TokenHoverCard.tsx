@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { RLBoardRecord } from "@/lib/rlboard/schema";
 import { getTokenMetric, availableMetrics, TOKEN_METRIC_LABELS } from "@/lib/rlboard/schema";
+import { fmtNum } from "@/lib/rlboard/format";
 
 /**
  * Multi-metric hover popover for a single token. Shows all available
