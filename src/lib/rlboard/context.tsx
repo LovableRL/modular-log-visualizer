@@ -1,6 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import type { RLBoardRecord } from "@/lib/rlboard/schema";
-import { makeSampleRecords } from "@/lib/rlboard/sample";
 import { recordRun } from "@/lib/rlboard/parse";
 
 interface DataCtx {
@@ -35,9 +34,9 @@ export type TokenViewMode = "compact" | "values" | "table";
 const Ctx = createContext<DataCtx | null>(null);
 
 export function RLBoardProvider({ children }: { children: ReactNode }) {
-  const [records, setRecordsState] = useState<RLBoardRecord[]>(() => makeSampleRecords());
+  const [records, setRecordsState] = useState<RLBoardRecord[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [source, setSource] = useState("Built-in sample (rhyme task)");
+  const [source, setSource] = useState("(loading demo/rlboard-demo.jsonl …)");
   const [hideSpecialTokens, setHideSpecialTokens] = useState(false);
   const [tokenViewMode, setTokenViewMode] = useState<TokenViewMode>("compact");
   const [activeRuns, setActiveRuns] = useState<Set<string>>(new Set());
