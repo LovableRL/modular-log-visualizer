@@ -1,98 +1,66 @@
 
 
-# 去卡片化 + 自适应区块布局
+## 目标
 
-把 Playground 从"卡片堆叠"改造为"密度优先的工作台"：去掉每个区块的边框/标题栏/内边距，改用极简的标签 + 分隔线；区块之间用可拖拽的分隔条调整大小，区块内部组件用 `ResizeObserver` 监听容器尺寸，实时把宽高传给图表/表格，做到拉伸时所有元素自适应。
+把 Playground 从"内置 sample / 合成数据"改成**端到端 jsonl-only 可视化**：所有数据来源唯一 = 一个 `.jsonl` 文件（每行一条 `RLBoardRecord`），没有 sample 按钮，没有合成 stress-test，开箱即用一个真实的 demo jsonl 文件。
 
-## 视觉变化
+## 现状回顾
 
-之前（卡片化）：
+- `src/lib/rlboard/sample.ts` — 合成数据生成器（押韵 demo + 256k 压测）
+- `src/routes/playground.tsx` 默认调用 `makeSampleRecords()` 填充
+- 工具栏有 3 个数据源按钮：Upload / Sample / 256k stress-test
+- 没有 schema 文档面向用户暴露
+
+## 方案
+
+### 1. 新增 demo jsonl 文件（真实可下载的样例）
+- 新建 `public/demo/rlboard-demo.jsonl`，约 60-120 行，覆盖 3-5 个 step、带 `prompt / response / reward / ref_reward / kl / tokens / token_rewards / values / logprobs / ref_logprobs`，让所有图表都能立刻看到效果
+- 内容用简单押韵任务（沿用现有语义），但是写成静态 jsonl 而不是运行时生成
+
+### 2. 改造 Playground 数据加载逻辑
+- 启动时通过 `fetch("/demo/rlboard-demo.jsonl")` 读 demo 文件，走同一个 `parseJsonl()` 入口
+- `source` 显示 `demo/rlboard-demo.jsonl (N records)`，明确告诉用户这是从 jsonl 加载的
+- 加载中显示 skeleton；失败显示错误并提示用户上传自己的 jsonl
+- 保留 Upload 按钮作为唯一的数据切换入口
+- 新增 "Reload demo" 按钮（替代 Sample）和 "Download demo .jsonl" 链接
+
+### 3. 移除合成数据相关代码
+- 删除工具栏的 "Sample" 和 "256k stress-test" 按钮
+- 删除 `src/lib/rlboard/sample.ts` 的 import 引用
+- `sample.ts` 文件本身保留但不再被 playground 引用（其他地方如 docs 页若有引用一并清理）
+
+### 4. 暴露 schema 让用户能对接
+- 在工具栏加一个 "Schema" 按钮，点开 popover 展示一行示例 jsonl + 字段说明表格
+- 字段表内容直接来自 `src/lib/rlboard/schema.ts`，包含字段名、类型、是否必填、用途（reward 曲线 / token 热力图 / critic 诊断）
+
+### 5. 文件清单
+
+| 操作 | 文件 |
+|---|---|
+| 新建 | `public/demo/rlboard-demo.jsonl` |
+| 修改 | `src/routes/playground.tsx`（启动 fetch demo、删 Sample/256k 按钮、加 Schema popover、加 Download 链接） |
+| 检查 | `src/routes/docs.tsx` / `src/routes/index.tsx` 是否引用 `sample.ts`，如有则改成 fetch demo jsonl |
+| 保留 | `src/lib/rlboard/sample.ts`（不删，避免影响其他潜在引用，但 playground 不再用） |
+
+## 用户体验流程
 
 ```text
-┌─ ╔══ reward-curve ══════════════╗ ──┐
-│  ║ Mean reward per step          ║  │
-│  ╠═══════════════════════════════╣  │
-│  ║   [chart]                     ║  │
-│  ╚═══════════════════════════════╝  │
-└─────────────────────────────────────┘
+打开 /playground
+  ↓
+自动 fetch /demo/rlboard-demo.jsonl
+  ↓
+解析后渲染所有图表（reward 曲线 / 分布 / KPI / token 热力图 …）
+  ↓
+用户可选：
+  · 上传自己的 .jsonl 替换
+  · 点 Reload demo 回到默认
+  · 点 Schema 看字段定义
+  · 点 Download 拿走 demo 当模板
 ```
 
-之后（去卡片化）：
+## 不做的事
 
-```text
-reward-curve · mean reward per step               ⋮
-─────────────────────────────────────────────────────
-  [chart fills 100% width × current height]
-─────────────────────────────────────────────────────
-↕ drag to resize
-```
-
-- 没有圆角边框、没有 padding、没有阴影
-- 只有一行 mono 小标题 + 一根 1px 分隔线
-- 区块之间用可拖拽 splitter（横向 + 纵向）
-
-## 三个核心改动
-
-### 1. 新增 `ResizableBlock`（替代 `ModuleCard`）
-
-```tsx
-<ResizableBlock title="reward-curve" subtitle="Mean reward per step">
-  {({ width, height }) => <RewardCurve width={width} height={height} />}
-</ResizableBlock>
-```
-
-特性：
-- **render-prop 传 size**：内部用 `ResizeObserver` 监听容器，把 `{width, height}` 实时传给子组件，拉伸时图表立刻 reflow
-- **无边框无 padding**：仅 `border-b` 分隔标题与内容
-- **collapse 按钮**：标题右侧一个小三角，折叠后只剩一行
-- **垂直 resize handle**：底部一根 4px 高的可拖拽条（鼠标变 `ns-resize`）
-- 高度状态写入 `localStorage`（key: `rlboard:h:${id}`），刷新保留
-
-### 2. 区块间用 `react-resizable-panels` 做 splitter
-
-把 metrics 三列、diagnostics 两列、以及 sections 之间的间距改成真正的 panel group：
-
-```tsx
-<PanelGroup direction="horizontal">
-  <Panel defaultSize={33}><RewardCurveBlock /></Panel>
-  <PanelResizeHandle />
-  <Panel defaultSize={33}><RewardDistBlock /></Panel>
-  <PanelResizeHandle />
-  <Panel defaultSize={34}><RewardDeltaBlock /></Panel>
-</PanelGroup>
-```
-
-依赖已经在 `src/components/ui/resizable.tsx` 就位，直接复用。
-
-Sections 之间也包一个 vertical PanelGroup，让用户可以把 metrics 缩成一条，给 trajectory 让出更多空间。
-
-### 3. 图表/表格组件接受外部 size
-
-当前 `RewardCurve / RewardDistribution / CriticDiagnostic / TokenTable / ResponseTable` 大多固定 `height` prop。改成：
-
-- 同时接受 `width?: number; height?: number`
-- 如果传入则用传入值；否则继续 fallback 到自身默认
-- 内部 SVG/recharts 用 `ResponsiveContainer` 包一层（或直接用传入 width/height）
-
-`TrajectoryView` 已经是 grid 布局，只需把固定 `360px` 段列宽改为 panel 拖拽。
-
-## 文件改动
-
-**新增**
-- `src/components/rlboard/ResizableBlock.tsx` — 替代 ModuleCard 的去卡片化容器（含 ResizeObserver + 折叠 + 高度持久化）
-
-**修改**
-- `src/routes/playground.tsx` — 把所有 `ModuleCard` 换成 `ResizableBlock`，metrics/diagnostics 行用 `PanelGroup` 包裹，sections 之间用 vertical `PanelGroup`
-- `src/components/rlboard/RewardCurve.tsx`、`RewardDistribution.tsx`、`RewardDeltaDistribution.tsx`、`CriticDiagnostic.tsx`、`ResponseTable.tsx`、`ResponseDiff.tsx` — 接受 `width?` / `height?` props，移除内部固定高度
-- `src/components/rlboard/TrajectoryView.tsx` — 左侧 segment list 用 PanelGroup 让用户拖宽
-- `src/components/rlboard/index.ts` — 导出 ResizableBlock
-
-**删除/弃用**
-- `ModuleCard.tsx` 保留但不再被 playground 使用（modules 路由仍可能用到，不动）
-
-## 兼容性
-
-- 持久化 key 用统一前缀 `rlboard:layout:*`，避免污染
-- 折叠/visibility chips 保留（顶部 toolbar 不变）
-- 现有响应式断点（`lg:grid-cols-3`）由 PanelGroup 接管，移动端 fallback 成纵向堆叠
+- 不引入后端 / 不连数据库（仍是纯前端 + 静态文件，符合"端到端"=一个 jsonl 全栈数据源的定义）
+- 不改图表组件本身、不动 KPI / 全局 step 同步逻辑
+- 不删 `sample.ts` 物理文件（最小破坏）
 
