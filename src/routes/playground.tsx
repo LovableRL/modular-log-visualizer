@@ -203,14 +203,13 @@ function PlaygroundPage() {
             >
               {loadingDemo ? "loading…" : "Reload demo"}
             </button>
-            <a
-              href={DEMO_URL}
-              download="rlboard-demo.jsonl"
+            <button
+              onClick={downloadDemo}
               className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary"
               title="Download the demo .jsonl as a template for your own training logs"
             >
               Download .jsonl
-            </a>
+            </button>
             <Popover>
               <PopoverTrigger asChild>
                 <button
