@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import type { RLBoardRecord, TokenMetricKey } from "@/lib/rlboard/schema";
 import { TOKEN_METRIC_LABELS } from "@/lib/rlboard/schema";
 import {
@@ -38,8 +39,9 @@ export function TrajectoryTimeline({
   onMetricChange,
   kindFilter,
   onKindFilterChange,
-  height = 560,
 }: TrajectoryTimelineProps) {
+  const [showColorBy, setShowColorBy] = useState(true);
+  const [showKinds, setShowKinds] = useState(true);
   const segments = useMemo(() => deriveSegments(record), [record]);
   const aggregates = useMemo(() => aggregateSegments(record, segments), [record, segments]);
 
