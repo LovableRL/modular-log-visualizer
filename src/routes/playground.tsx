@@ -248,6 +248,66 @@ function PlaygroundPage() {
           </div>
         )}
 
+        {/* Sync bar — global step + variance scale (drives metrics + distributions) */}
+        {steps.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-border pt-3">
+            <div className="flex min-w-[260px] flex-1 items-center gap-2">
+              <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                step
+              </span>
+              <input
+                type="range"
+                min={steps[0]}
+                max={steps[steps.length - 1]}
+                step={1}
+                value={activeStep}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  // Snap to nearest valid step
+                  const nearest = steps.reduce((p, c) =>
+                    Math.abs(c - v) < Math.abs(p - v) ? c : p,
+                  );
+                  setGlobalStep(nearest);
+                }}
+                className="h-1 flex-1 accent-primary"
+              />
+              <span className="min-w-[60px] text-right font-mono text-[11px] text-foreground">
+                {activeStep}
+                <span className="text-muted-foreground">
+                  /{steps[steps.length - 1]}
+                </span>
+              </span>
+              {globalStep != null && (
+                <button
+                  onClick={() => setGlobalStep(null)}
+                  className="text-[10px] text-muted-foreground underline hover:text-foreground"
+                  title="Follow latest step"
+                >
+                  latest
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                variance
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={3}
+                step={0.25}
+                value={varianceScale}
+                onChange={(e) => setVarianceScale(Number(e.target.value))}
+                className="h-1 w-32 accent-primary"
+                title="Reward curve ±k·σ band scale"
+              />
+              <span className="min-w-[36px] font-mono text-[11px] text-foreground">
+                ±{varianceScale.toFixed(2)}σ
+              </span>
+            </div>
+          </div>
+        )}
+
         {error ? (
           <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
