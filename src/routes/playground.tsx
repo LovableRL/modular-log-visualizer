@@ -247,62 +247,86 @@ function PlaygroundPage() {
       {showPerf && <PerfPanel />}
 
       {/* Section 1 — Training metrics */}
-      <section>
-        <SectionTitle>1 · Training metrics</SectionTitle>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <ModuleCard title="reward-curve" subtitle="Mean reward per step (vs reference)">
-            <RewardCurve records={filteredRecords} height={240} />
-          </ModuleCard>
-          <ModuleCard title="reward-distribution" subtitle="Per-step reward histogram">
-            <RewardDistribution records={filteredRecords} height={240} />
-          </ModuleCard>
-          <ModuleCard
-            title="reward − ref_reward"
-            subtitle="How much the policy beats the reference"
-          >
-            <RewardDeltaDistribution records={filteredRecords} height={240} />
-          </ModuleCard>
-        </div>
-      </section>
+      {visibleSections.has("metrics") && (
+        <section>
+          <SectionTitle>1 · Training metrics</SectionTitle>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <ModuleCard
+              title="reward-curve"
+              subtitle="Mean reward per step (vs reference)"
+              resizable
+              defaultHeight={300}
+            >
+              <RewardCurve records={filteredRecords} height={240} />
+            </ModuleCard>
+            <ModuleCard
+              title="reward-distribution"
+              subtitle="Per-step reward histogram"
+              resizable
+              defaultHeight={300}
+            >
+              <RewardDistribution records={filteredRecords} height={240} />
+            </ModuleCard>
+            <ModuleCard
+              title="reward − ref_reward"
+              subtitle="How much the policy beats the reference"
+              resizable
+              defaultHeight={300}
+            >
+              <RewardDeltaDistribution records={filteredRecords} height={240} />
+            </ModuleCard>
+          </div>
+        </section>
+      )}
 
       {/* Section 2 — Rollout list */}
-      <section>
-        <SectionTitle>2 · Rollouts</SectionTitle>
-        <ModuleCard
-          title="response-table"
-          subtitle="Click a row to load it into the token explorer below"
-          actions={
-            <span className="font-mono text-[11px] text-muted-foreground">
-              selected #{selectedIndex} · {selected ? tokenCount(selected).toLocaleString() : 0} tokens
-            </span>
-          }
-        >
-          <ResponseTable
-            records={filteredRecords}
-            selectedIndex={selectedIndex}
-            onSelect={setSelectedIndex}
-            height={360}
-          />
-        </ModuleCard>
-      </section>
+      {visibleSections.has("rollouts") && (
+        <section>
+          <SectionTitle>2 · Rollouts</SectionTitle>
+          <ModuleCard
+            title="response-table"
+            subtitle="Click a row to load it into the token explorer below"
+            resizable
+            defaultHeight={420}
+            actions={
+              <span className="font-mono text-[11px] text-muted-foreground">
+                selected #{selectedIndex} · {selected ? tokenCount(selected).toLocaleString() : 0} tokens
+              </span>
+            }
+          >
+            <ResponseTable
+              records={filteredRecords}
+              selectedIndex={selectedIndex}
+              onSelect={setSelectedIndex}
+              height={360}
+            />
+          </ModuleCard>
+        </section>
+      )}
 
       {/* Section 3 — Selected rollout: trajectory or flat tokens */}
-      <SelectedRolloutSection selected={selected} selectedIndex={selectedIndex} />
+      {visibleSections.has("trajectory") && (
+        <SelectedRolloutSection selected={selected} selectedIndex={selectedIndex} />
+      )}
 
       {/* Section 4 — Critic + diff diagnostics */}
-      {selected && (
+      {visibleSections.has("diagnostics") && selected && (
         <section>
           <SectionTitle>4 · Diagnostics</SectionTitle>
           <div className="grid gap-4 lg:grid-cols-2">
             <ModuleCard
               title="critic-diagnostic"
               subtitle="value vs token_reward (lower MSE = better critic fit)"
+              resizable
+              defaultHeight={300}
             >
               <CriticDiagnostic record={selected} height={240} />
             </ModuleCard>
             <ModuleCard
               title="rl-vs-ref-text"
               subtitle="Word-level diff against ref_response"
+              resizable
+              defaultHeight={300}
             >
               <ResponseDiff record={selected} />
             </ModuleCard>
