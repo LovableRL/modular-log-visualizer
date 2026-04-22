@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { RLBoardRecord } from "@/lib/rlboard/schema";
 import { getTokenMetric, availableMetrics, TOKEN_METRIC_LABELS } from "@/lib/rlboard/schema";
+import { fmtNum } from "@/lib/rlboard/format";
 
 /**
  * Multi-metric hover popover for a single token. Shows all available
@@ -55,7 +56,7 @@ function RowLine({ label, v, z }: { label: string; v: number; z: number }) {
   return (
     <>
       <span className="truncate">{label}</span>
-      <span className="text-right tabular-nums">{Number.isFinite(v) ? v.toFixed(3) : "—"}</span>
+      <span className="text-right tabular-nums">{fmtNum(v, 3)}</span>
       <span
         className="text-right tabular-nums"
         style={{ color: extreme ? "var(--destructive)" : "var(--muted-foreground)" }}

@@ -8,6 +8,7 @@ import {
 } from "@/lib/rlboard/schema";
 import { robustExtent } from "@/lib/rlboard/colors";
 import { decodeTokenForDisplay } from "@/lib/rlboard/tokens";
+import { fmtNum } from "@/lib/rlboard/format";
 
 /**
  * Dense per-token table view — every available metric becomes a column.
@@ -166,9 +167,9 @@ export function TokenTable({
                       key={c.m}
                       className="rounded-sm px-1 text-right tabular-nums"
                       style={{ background: bg }}
-                      title={`${c.label}: ${Number.isFinite(v) ? v.toFixed(4) : "—"}`}
+                      title={`${c.label}: ${fmtNum(v, 4)}`}
                     >
-                      {Number.isFinite(v) ? v.toFixed(3) : "—"}
+                      {fmtNum(v, 3)}
                     </span>
                   );
                 })}

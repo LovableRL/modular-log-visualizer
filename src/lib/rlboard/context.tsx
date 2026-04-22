@@ -20,6 +20,14 @@ interface DataCtx {
   setHideSpecialTokens: (v: boolean) => void;
   tokenViewMode: TokenViewMode;
   setTokenViewMode: (v: TokenViewMode) => void;
+  /** Globally selected training step. `null` = "latest available". */
+  globalStep: number | null;
+  setGlobalStep: (s: number | null) => void;
+  /** Resolved step that batch-level views should follow. */
+  activeStep: number;
+  /** Variance band scale for reward curve (0 = off, 3 = ±3σ). */
+  varianceScale: number;
+  setVarianceScale: (s: number) => void;
 }
 
 export type TokenViewMode = "compact" | "values" | "table";
@@ -33,6 +41,8 @@ export function RLBoardProvider({ children }: { children: ReactNode }) {
   const [hideSpecialTokens, setHideSpecialTokens] = useState(false);
   const [tokenViewMode, setTokenViewMode] = useState<TokenViewMode>("compact");
   const [activeRuns, setActiveRuns] = useState<Set<string>>(new Set());
+  const [globalStep, setGlobalStep] = useState<number | null>(null);
+  const [varianceScale, setVarianceScale] = useState<number>(1);
 
   const runs = useMemo(
     () => Array.from(new Set(records.map(recordRun))).sort(),
@@ -77,6 +87,14 @@ export function RLBoardProvider({ children }: { children: ReactNode }) {
     setHideSpecialTokens,
     tokenViewMode,
     setTokenViewMode,
+    globalStep,
+    setGlobalStep,
+    activeStep:
+      globalStep != null && steps.includes(globalStep)
+        ? globalStep
+        : steps.at(-1) ?? 0,
+    varianceScale,
+    setVarianceScale,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
