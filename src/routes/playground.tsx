@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRLBoard } from "@/lib/rlboard/context";
 import {
   RewardCurve,
@@ -49,6 +49,39 @@ function PlaygroundPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPerf, setShowPerf] = useState(false);
+
+  // Per-section visibility (persisted)
+  const SECTIONS = [
+    { id: "metrics", label: "metrics" },
+    { id: "rollouts", label: "rollouts" },
+    { id: "trajectory", label: "trajectory" },
+    { id: "diagnostics", label: "diagnostics" },
+  ] as const;
+  type SectionId = (typeof SECTIONS)[number]["id"];
+  const [visibleSections, setVisibleSections] = useState<Set<SectionId>>(() => {
+    if (typeof window === "undefined") return new Set(SECTIONS.map((s) => s.id));
+    try {
+      const raw = localStorage.getItem("rlboard:sections");
+      if (raw) return new Set(JSON.parse(raw) as SectionId[]);
+    } catch {
+      /* ignore */
+    }
+    return new Set(SECTIONS.map((s) => s.id));
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("rlboard:sections", JSON.stringify(Array.from(visibleSections)));
+    } catch {
+      /* ignore */
+    }
+  }, [visibleSections]);
+  const toggleSection = (id: SectionId) =>
+    setVisibleSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const onFiles = async (files: File[]) => {
     setError(null);
@@ -137,6 +170,37 @@ function PlaygroundPage() {
               {showPerf ? "Hide" : "Show"} perf
             </button>
           </div>
+        </div>
+
+        {/* Section visibility chips */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+          <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+            sections
+          </span>
+          {SECTIONS.map((s) => {
+            const active = visibleSections.has(s.id);
+            return (
+              <button
+                key={s.id}
+                onClick={() => toggleSection(s.id)}
+                className="rounded-full border px-3 py-0.5 font-mono text-[11px] transition-colors"
+                style={{
+                  borderColor: active ? "var(--primary)" : "var(--border)",
+                  background: active
+                    ? "color-mix(in oklab, var(--primary) 18%, transparent)"
+                    : "transparent",
+                  color: active ? "var(--foreground)" : "var(--muted-foreground)",
+                }}
+                title={active ? `Hide ${s.label}` : `Show ${s.label}`}
+              >
+                {active ? "✓ " : "  "}
+                {s.label}
+              </button>
+            );
+          })}
+          <span className="ml-2 text-[10px] text-muted-foreground">
+            tip: drag bottom-right corner of any card to resize
+          </span>
         </div>
 
         {/* Run chips — only when more than one run is loaded */}
