@@ -330,11 +330,16 @@ function PlaygroundPage() {
               <ResizableBlock
                 id="reward-curve"
                 title="reward-curve"
-                subtitle="mean reward per step"
+                subtitle={`mean ± ${varianceScale.toFixed(2)}σ per step`}
                 defaultHeight={260}
               >
                 {({ width, height }) => (
-                  <RewardCurve records={filteredRecords} width={width} height={height} />
+                  <RewardCurve
+                    records={filteredRecords}
+                    width={width}
+                    height={height}
+                    varianceScale={varianceScale}
+                  />
                 )}
               </ResizableBlock>
             </ResizablePanel>
