@@ -257,7 +257,7 @@ function PlaygroundPage() {
           <SectionTitle>1 · Training metrics</SectionTitle>
           <ResizablePanelGroup
             direction="horizontal"
-            autoSaveId="rlboard:layout:metrics"
+            id="rlboard-metrics"
             className="min-h-[260px] rounded-md border border-border/60"
           >
             <ResizablePanel defaultSize={34} minSize={18}>
@@ -340,7 +340,7 @@ function PlaygroundPage() {
           <SectionTitle>3 · Diagnostics</SectionTitle>
           <ResizablePanelGroup
             direction="horizontal"
-            autoSaveId="rlboard:layout:diagnostics"
+            id="rlboard-diagnostics"
             className="min-h-[260px] rounded-md border border-border/60"
           >
             <ResizablePanel defaultSize={50} minSize={20}>
