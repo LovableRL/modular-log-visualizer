@@ -466,7 +466,8 @@ type SectionTitleProps = { children: React.ReactNode };
 function SectionTitle(props: SectionTitleProps) {
   const { children } = props;
   return (
-    <h2 className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+    <h2 className="mb-2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+      <span className="inline-block h-3 w-[3px] rounded-sm bg-primary/70" />
       {children}
     </h2>
   );
