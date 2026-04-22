@@ -16,6 +16,7 @@ export { TokenExplorer } from "./TokenExplorer";
 export { CriticDiagnostic } from "./CriticDiagnostic";
 export { ResponseDiff } from "./ResponseDiff";
 export { ModuleCard } from "./ModuleCard";
+export { ResizableBlock } from "./ResizableBlock";
 export { PerfPanel } from "./PerfPanel";
 export { TrajectoryView } from "./TrajectoryView";
 export { TrajectoryTimeline } from "./TrajectoryTimeline";
