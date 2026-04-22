@@ -11,12 +11,14 @@ import {
   CriticDiagnostic,
   ResponseDiff,
   TrajectoryView,
+  KpiOverview,
 } from "@/components/rlboard";
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
+import { Slider } from "@/components/ui/slider";
 import { parseFiles } from "@/lib/rlboard/parse";
 import { makeSampleRecords, makeLongContextRecord } from "@/lib/rlboard/sample";
 import { tokenCount, type RLBoardRecord } from "@/lib/rlboard/schema";
