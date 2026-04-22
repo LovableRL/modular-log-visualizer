@@ -592,3 +592,66 @@ function SelectedRolloutSection(props: SelectedRolloutSectionProps) {
     </section>
   );
 }
+
+/** Schema popover content — documents the jsonl record format end users must produce. */
+function SchemaPopoverBody() {
+  const FIELDS: Array<{ name: string; type: string; req: boolean; use: string }> = [
+    { name: "step", type: "number", req: true, use: "x-axis of reward curve / KPI step filter" },
+    { name: "rollout_id", type: "string", req: false, use: "row id in response table" },
+    { name: "group_id", type: "string", req: false, use: "GRPO/RLOO grouping" },
+    { name: "prompt", type: "string", req: true, use: "shown in trajectory + response table" },
+    { name: "response", type: "string", req: true, use: "shown in trajectory" },
+    { name: "ref_response", type: "string", req: false, use: "rl-vs-ref word-level diff" },
+    { name: "response_tokens", type: "string[]", req: false, use: "token heatmap / inline / curves" },
+    { name: "logprobs", type: "number[]", req: false, use: "token curves · KL = logp − ref_logp" },
+    { name: "ref_logprobs", type: "number[]", req: false, use: "KL per token diagnostic" },
+    { name: "values", type: "number[]", req: false, use: "critic diagnostic (vs token_rewards)" },
+    { name: "token_rewards", type: "number[]", req: false, use: "critic diagnostic, token heatmap" },
+    { name: "advantages", type: "number[]", req: false, use: "token curves" },
+    { name: "entropy", type: "number[]", req: false, use: "token curves" },
+    { name: "reward", type: "number", req: true, use: "reward curve, distribution, KPI" },
+    { name: "ref_reward", type: "number", req: false, use: "Δ vs ref distribution + KPI" },
+    { name: "kl", type: "number", req: false, use: "mean KL KPI" },
+  ];
+  const example = `{"step":0,"rollout_id":"rhyme-s0-v0","prompt":"…","response":"…","response_tokens":["…"],"logprobs":[-1.0],"values":[0.4],"token_rewards":[0.0],"reward":0.3,"ref_reward":0.05,"kl":0.07}`;
+  return (
+    <div className="max-h-[70vh] overflow-auto p-3">
+      <h3 className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+        jsonl record schema
+      </h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        One JSON object per line. All per-token arrays must share the same length as{" "}
+        <code className="font-mono">response_tokens</code>.
+      </p>
+      <pre className="mt-2 overflow-x-auto rounded-md border border-border bg-background/40 p-2 font-mono text-[10px] leading-relaxed">
+{example}
+      </pre>
+      <table className="mt-3 w-full border-collapse text-left font-mono text-[11px]">
+        <thead>
+          <tr className="border-b border-border text-muted-foreground">
+            <th className="py-1 pr-2 font-normal">field</th>
+            <th className="py-1 pr-2 font-normal">type</th>
+            <th className="py-1 pr-2 font-normal">req</th>
+            <th className="py-1 font-normal">used by</th>
+          </tr>
+        </thead>
+        <tbody>
+          {FIELDS.map((f) => (
+            <tr key={f.name} className="border-b border-border/40">
+              <td className="py-1 pr-2 text-foreground">{f.name}</td>
+              <td className="py-1 pr-2 text-muted-foreground">{f.type}</td>
+              <td className="py-1 pr-2">
+                {f.req ? (
+                  <span className="text-primary">●</span>
+                ) : (
+                  <span className="text-muted-foreground">○</span>
+                )}
+              </td>
+              <td className="py-1 text-muted-foreground">{f.use}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
