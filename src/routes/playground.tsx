@@ -50,6 +50,12 @@ function PlaygroundPage() {
     filteredRecords,
     hideSpecialTokens,
     setHideSpecialTokens,
+    steps,
+    globalStep,
+    setGlobalStep,
+    activeStep,
+    varianceScale,
+    setVarianceScale,
   } = useRLBoard();
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
