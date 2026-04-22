@@ -6,12 +6,17 @@ import {
   RewardDistribution,
   RewardDeltaDistribution,
   ResponseTable,
-  ModuleCard,
+  ResizableBlock,
   PerfPanel,
   CriticDiagnostic,
   ResponseDiff,
   TrajectoryView,
 } from "@/components/rlboard";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 import { parseFiles } from "@/lib/rlboard/parse";
 import { makeSampleRecords, makeLongContextRecord } from "@/lib/rlboard/sample";
 import { tokenCount, type RLBoardRecord } from "@/lib/rlboard/schema";
@@ -101,9 +106,9 @@ function PlaygroundPage() {
   const selected = filteredRecords[selectedIndex] ?? filteredRecords[0];
 
   return (
-    <main className="mx-auto w-full max-w-[1400px] space-y-6 px-4 py-6">
+    <main className="mx-auto w-full max-w-[1400px] space-y-4 px-4 py-4">
       {/* Toolbar */}
-      <section className="rounded-lg border border-border bg-card p-3">
+      <section className="rounded-md border border-border bg-card/40 p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-lg font-semibold">Playground</h1>
@@ -199,7 +204,7 @@ function PlaygroundPage() {
             );
           })}
           <span className="ml-2 text-[10px] text-muted-foreground">
-            tip: drag bottom-right corner of any card to resize
+            tip: drag splitters between blocks · drag bottom edge of each block to resize height
           </span>
         </div>
 
@@ -246,36 +251,58 @@ function PlaygroundPage() {
 
       {showPerf && <PerfPanel />}
 
-      {/* Section 1 — Training metrics */}
+      {/* Section 1 — Training metrics: 3-panel horizontal splitter */}
       {visibleSections.has("metrics") && (
         <section>
           <SectionTitle>1 · Training metrics</SectionTitle>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <ModuleCard
-              title="reward-curve"
-              subtitle="Mean reward per step (vs reference)"
-              resizable
-              defaultHeight={300}
-            >
-              <RewardCurve records={filteredRecords} height={240} />
-            </ModuleCard>
-            <ModuleCard
-              title="reward-distribution"
-              subtitle="Per-step reward histogram"
-              resizable
-              defaultHeight={300}
-            >
-              <RewardDistribution records={filteredRecords} height={240} />
-            </ModuleCard>
-            <ModuleCard
-              title="reward − ref_reward"
-              subtitle="How much the policy beats the reference"
-              resizable
-              defaultHeight={300}
-            >
-              <RewardDeltaDistribution records={filteredRecords} height={240} />
-            </ModuleCard>
-          </div>
+          <ResizablePanelGroup
+            direction="horizontal"
+            id="rlboard-metrics"
+            className="min-h-[260px] rounded-md border border-border/60"
+          >
+            <ResizablePanel defaultSize={34} minSize={18}>
+              <ResizableBlock
+                id="reward-curve"
+                title="reward-curve"
+                subtitle="mean reward per step"
+                defaultHeight={260}
+              >
+                {({ width, height }) => (
+                  <RewardCurve records={filteredRecords} width={width} height={height} />
+                )}
+              </ResizableBlock>
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel defaultSize={33} minSize={18}>
+              <ResizableBlock
+                id="reward-distribution"
+                title="reward-distribution"
+                subtitle="per-step histogram"
+                defaultHeight={260}
+              >
+                {({ width, height }) => (
+                  <RewardDistribution records={filteredRecords} width={width} height={height} />
+                )}
+              </ResizableBlock>
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel defaultSize={33} minSize={18}>
+              <ResizableBlock
+                id="reward-delta"
+                title="reward − ref_reward"
+                subtitle="policy vs reference"
+                defaultHeight={260}
+              >
+                {({ width, height }) => (
+                  <RewardDeltaDistribution
+                    records={filteredRecords}
+                    width={width}
+                    height={height}
+                  />
+                )}
+              </ResizableBlock>
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </section>
       )}
 
@@ -283,53 +310,67 @@ function PlaygroundPage() {
       {visibleSections.has("rollouts") && (
         <section>
           <SectionTitle>2 · Rollouts</SectionTitle>
-          <ModuleCard
+          <ResizableBlock
+            id="response-table"
             title="response-table"
-            subtitle="Click a row to load it into the token explorer below"
-            resizable
-            defaultHeight={420}
+            subtitle="click a row to load it into the trajectory below"
+            defaultHeight={380}
             actions={
               <span className="font-mono text-[11px] text-muted-foreground">
-                selected #{selectedIndex} · {selected ? tokenCount(selected).toLocaleString() : 0} tokens
+                selected #{selectedIndex} ·{" "}
+                {selected ? tokenCount(selected).toLocaleString() : 0} tokens
               </span>
             }
           >
-            <ResponseTable
-              records={filteredRecords}
-              selectedIndex={selectedIndex}
-              onSelect={setSelectedIndex}
-              height={360}
-            />
-          </ModuleCard>
+            {({ height }) => (
+              <ResponseTable
+                records={filteredRecords}
+                selectedIndex={selectedIndex}
+                onSelect={setSelectedIndex}
+                height={height}
+              />
+            )}
+          </ResizableBlock>
         </section>
       )}
 
-      {/* Section 3 — Critic + diff diagnostics */}
+      {/* Section 3 — Diagnostics: 2-panel horizontal splitter */}
       {visibleSections.has("diagnostics") && selected && (
         <section>
           <SectionTitle>3 · Diagnostics</SectionTitle>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <ModuleCard
-              title="critic-diagnostic"
-              subtitle="value vs token_reward (lower MSE = better critic fit)"
-              resizable
-              defaultHeight={300}
-            >
-              <CriticDiagnostic record={selected} height={240} />
-            </ModuleCard>
-            <ModuleCard
-              title="rl-vs-ref-text"
-              subtitle="Word-level diff against ref_response"
-              resizable
-              defaultHeight={300}
-            >
-              <ResponseDiff record={selected} />
-            </ModuleCard>
-          </div>
+          <ResizablePanelGroup
+            direction="horizontal"
+            id="rlboard-diagnostics"
+            className="min-h-[260px] rounded-md border border-border/60"
+          >
+            <ResizablePanel defaultSize={50} minSize={20}>
+              <ResizableBlock
+                id="critic-diagnostic"
+                title="critic-diagnostic"
+                subtitle="value vs token_reward (lower MSE = better fit)"
+                defaultHeight={260}
+              >
+                {({ width, height }) => (
+                  <CriticDiagnostic record={selected} width={width} height={height} />
+                )}
+              </ResizableBlock>
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel defaultSize={50} minSize={20}>
+              <ResizableBlock
+                id="rl-vs-ref-text"
+                title="rl-vs-ref-text"
+                subtitle="word-level diff against ref_response"
+                defaultHeight={260}
+              >
+                <ResponseDiff record={selected} />
+              </ResizableBlock>
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </section>
       )}
 
-      {/* Section 4 — Selected rollout: trajectory (full-width, no card wrapper) */}
+      {/* Section 4 — Trajectory (full-width, no card wrapper) */}
       {visibleSections.has("trajectory") && (
         <SelectedRolloutSection selected={selected} selectedIndex={selectedIndex} />
       )}
@@ -358,7 +399,7 @@ function SelectedRolloutSection(props: SelectedRolloutSectionProps) {
     return (
       <section>
         <SectionTitle>4 · Trajectory</SectionTitle>
-        <p className="rounded-lg border border-border bg-card py-12 text-center text-sm text-muted-foreground">
+        <p className="rounded-md border border-border bg-card py-12 text-center text-sm text-muted-foreground">
           No rollout selected.
         </p>
       </section>
@@ -379,7 +420,7 @@ function SelectedRolloutSection(props: SelectedRolloutSectionProps) {
           {subtitle} · {tokenCount(selected).toLocaleString()} tokens
         </span>
       </div>
-      <details className="mb-3 rounded-lg border border-border bg-card p-3 text-sm">
+      <details className="mb-3 rounded-md border border-border/60 p-3 text-sm">
         <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
           prompt &amp; response text
         </summary>

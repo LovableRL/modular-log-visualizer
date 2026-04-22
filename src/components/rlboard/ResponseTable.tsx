@@ -16,6 +16,7 @@ export function ResponseTable({
   selectedIndex?: number;
   onSelect?: (idx: number) => void;
   height?: number;
+  width?: number;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("reward");
   const [asc, setAsc] = useState(false);
@@ -66,14 +67,14 @@ export function ResponseTable({
   const multiRun = useMemo(() => new Set(rows.map((r) => r.run)).size > 1, [rows]);
 
   return (
-    <div className="space-y-2">
+    <div className="flex h-full min-h-0 flex-col gap-2">
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search response or id…"
-        className="w-full rounded-md border border-border bg-input px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        className="w-full flex-shrink-0 rounded-md border border-border bg-input px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
       />
-      <div className="overflow-auto rounded-md border border-border" style={{ maxHeight: height }}>
+      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border" style={{ maxHeight: height }}>
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-secondary text-xs uppercase tracking-wider text-muted-foreground">
             <tr>

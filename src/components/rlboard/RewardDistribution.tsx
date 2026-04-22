@@ -7,11 +7,13 @@ export function RewardDistribution({
   records,
   step,
   height = 240,
+  width,
   bins = 16,
 }: {
   records: RLBoardRecord[];
   step?: number;
   height?: number;
+  width?: number;
   bins?: number;
 }) {
   const steps = useMemo(
@@ -55,7 +57,7 @@ export function RewardDistribution({
           </select>
         </div>
       )}
-      <SimpleBarChart data={data} height={height} />
+      <SimpleBarChart data={data} height={height} width={width} />
     </div>
   );
 }

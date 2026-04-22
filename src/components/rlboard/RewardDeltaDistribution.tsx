@@ -11,11 +11,13 @@ export function RewardDeltaDistribution({
   records,
   step,
   height = 240,
+  width,
   bins = 16,
 }: {
   records: RLBoardRecord[];
   step?: number;
   height?: number;
+  width?: number;
   bins?: number;
 }) {
   const steps = useMemo(
@@ -78,7 +80,7 @@ export function RewardDeltaDistribution({
           No ref_reward available for this step.
         </p>
       ) : (
-        <SimpleBarChart data={data} height={height} />
+        <SimpleBarChart data={data} height={height} width={width} />
       )}
     </div>
   );

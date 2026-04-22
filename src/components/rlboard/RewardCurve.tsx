@@ -3,7 +3,11 @@ import type { RLBoardRecord } from "@/lib/rlboard/schema";
 import { SimpleLineChart } from "./SimpleCharts";
 
 /** Reward Curve module — mean reward per step (vs ref_reward when available). */
-export function RewardCurve({ records, height = 260 }: { records: RLBoardRecord[]; height?: number }) {
+export function RewardCurve({
+  records,
+  height = 260,
+  width,
+}: { records: RLBoardRecord[]; height?: number; width?: number }) {
   const data = useMemo(() => {
     const byStep = new Map<number, { reward: number[]; ref: number[] }>();
     for (const r of records) {
@@ -24,6 +28,7 @@ export function RewardCurve({ records, height = 260 }: { records: RLBoardRecord[
   return (
     <SimpleLineChart
       height={height}
+      width={width}
       xLabels={data.map((d) => d.step)}
       series={[
         { key: "reward", label: "reward", color: "var(--primary)", values: data.map((d) => d.reward) },
