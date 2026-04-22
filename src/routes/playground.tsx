@@ -304,15 +304,10 @@ function PlaygroundPage() {
         </section>
       )}
 
-      {/* Section 3 — Selected rollout: trajectory or flat tokens */}
-      {visibleSections.has("trajectory") && (
-        <SelectedRolloutSection selected={selected} selectedIndex={selectedIndex} />
-      )}
-
-      {/* Section 4 — Critic + diff diagnostics */}
+      {/* Section 3 — Critic + diff diagnostics */}
       {visibleSections.has("diagnostics") && selected && (
         <section>
-          <SectionTitle>4 · Diagnostics</SectionTitle>
+          <SectionTitle>3 · Diagnostics</SectionTitle>
           <div className="grid gap-4 lg:grid-cols-2">
             <ModuleCard
               title="critic-diagnostic"
@@ -332,6 +327,11 @@ function PlaygroundPage() {
             </ModuleCard>
           </div>
         </section>
+      )}
+
+      {/* Section 4 — Selected rollout: trajectory (full-width, no card wrapper) */}
+      {visibleSections.has("trajectory") && (
+        <SelectedRolloutSection selected={selected} selectedIndex={selectedIndex} />
       )}
     </main>
   );
